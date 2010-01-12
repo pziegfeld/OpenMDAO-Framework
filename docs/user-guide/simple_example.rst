@@ -214,7 +214,7 @@ the Python file optimization_unconstrained.py:
 	        self.add_container('paraboloid', Paraboloid())
 
 	        # Create CONMIN Optimizer instance
-	        self.add_container('driver', CONMINdriver())
+	        self.add_driver('driver', CONMINdriver())
         
 	        # CONMIN Flags
 	        self.driver.iprint = 0
@@ -293,7 +293,7 @@ management functions that are part of the Assembly class.
 	        self.add_container('paraboloid', Paraboloid())
 
 	        # Create CONMIN Optimizer instance
-	        self.add_container('driver', CONMINdriver())
+	        self.add_driver('driver', CONMINdriver())
 		
 Here, a Paraboloid component is created, and given the name *paraboloid.* Similarly
 a CONMIN driver is created and given the name *driver.* As with other class

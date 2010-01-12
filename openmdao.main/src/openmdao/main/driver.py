@@ -11,12 +11,9 @@ from networkx.algorithms.traversal import strongly_connected_components
 
 from openmdao.main.interfaces import IDriver
 from openmdao.main.component import Component
-from openmdao.main.api import Assembly
 from openmdao.main.stringref import StringRef, StringRefArray
-from openmdao.main.drivertree import DriverForest, create_labeled_graph
 
-    
-class Driver(Assembly):
+class Driver(Component):
     """ A Driver iterates over a collection of Components until some condition
     is met. """
     
@@ -70,8 +67,7 @@ class Driver(Assembly):
                     if not rv.refs_valid():
                         self._call_execute = True
                         return
-        
-                
+
     def execute(self):
         """ Iterate over a collection of Components until some condition
         is met. If you don't want to structure your driver to use pre_iteration,
@@ -100,33 +96,9 @@ class Driver(Assembly):
         pass
         
     def run_iteration(self):
-        """Runs the full set of components, in dataflow order, 
-        that are part of our iteration loop, including any nested drivers.
-        """
+        """Runs a single iteration of the workflow that this driver is associated with."""
         if self.parent:
-            drivers = self.parent.drivers
-            if len(drivers) > 1:
-                dtree = self._get_driver_tree()  # determine driver nesting hierarchy
-                if len(dtree.children) > 0:  # we have nested drivers
-                    graph = self.parent.get_component_graph().copy()
-                    for drv in dtree.drivers_iter():
-                        graph.add_edges_from(drv.get_ref_graph().edges_iter())
-                    strongs = strongly_connected_components(graph)
-                    for strong in strongs:
-                        if self.name in strong:
-                            subgraph = create_labeled_graph(graph.subgraph(nbunch=strong))
-                            for nested in dtree.children: # collapse immediate children
-                                nested.collapse_graph(subgraph)
-                            subgraph.remove_edges_from(
-                                self.get_ref_graph(iostatus='in').edges_iter())
-                            sorted = nx.topological_sort(subgraph)
-                            for comp in sorted:
-                                if comp != self.name:
-                                    getattr(self.parent, comp).run()
-                else:  # no nested drivers
-                    self._run_simple_iteration()
-            else:  # single driver case
-                self._run_simple_iteration()
+            self.parent.workflow.run()
         else:
             self.raise_exception('Driver cannot run referenced components without a parent',
                                  RuntimeError)
@@ -188,59 +160,3 @@ class Driver(Assembly):
             self._ref_graph[iostatus].add_edges_from([(rv, name) 
                                   for rv in self.get_referenced_comps(iostatus='in')])
         return self._ref_graph[iostatus]
-    
-    def _get_simple_iteration_subgraph(self):
-        """Return a graph of our iteration loop (ourself plus all components we
-        iterate over). This does not include nested drivers, unless they are
-        explicitly referenced by us through a ReferenceVariable or they are
-        explicitly connected to another component in our set of iteration
-        components via a non-ReferenceVariable connection.
-        """
-        if self._simple_iteration_subgraph is None:
-            graph = self.parent.get_component_graph().copy()
-            # add all of our StringRef edges and find any strongly connected
-            # components (SCCs) that are created as a result
-            graph.add_edges_from(self.get_ref_graph().edges_iter())
-            strcons = strongly_connected_components(graph)
-            # No cycles are allowed other than the one we possibly just
-            # created, so our cycle must be the first SCC in the list. If there
-            # is no cycle, then this driver may not be in the first SCC since
-            # they are sorted by size and they will all have size 1.
-            if len(strcons[0]) > 1:
-                self._simple_iteration_subgraph = graph.subgraph(nbunch=strcons[0])
-            else:
-                # no cycle, so just return a graph with the driver and any components
-                # it references
-                self._simple_iteration_subgraph = graph.subgraph(nbunch=[self.name]+
-                                                    list(self.get_referenced_comps()))
-            self._simple_iteration_set = None
-        
-        return self._simple_iteration_subgraph
-    
-    def simple_iteration_set(self):
-        """Return the set of components iterated over by this driver, not including
-        other drivers that may be nested within this driver.
-        """
-        if self._simple_iteration_set is None:
-            iterset = set(self._get_simple_iteration_subgraph().nodes_iter())
-            iterset.remove(self.name)
-            self._simple_iteration_set = iterset
-        return self._simple_iteration_set
-        
-    def _get_driver_tree(self):
-        """Returns the DriverTree object corresponding to this Driver from the 
-        DriverTree hierarchy in the parent Assembly."""
-        if not self._driver_tree:
-            self._driver_tree = DriverForest(self.parent.drivers).locate(self)
-        return self._driver_tree    
-            
-    def _run_simple_iteration(self):
-        """There are no nested drivers. Just run our subgraph with our 
-        input edges removed.
-        """
-        graph = self._get_simple_iteration_subgraph().copy()
-        graph.remove_node(self.name)
-        itercomps = nx.topological_sort(graph)
-        for comp in itercomps:
-                getattr(self.parent, comp).run()
-        

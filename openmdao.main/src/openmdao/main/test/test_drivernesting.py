@@ -98,10 +98,10 @@ class NestedDriverTestCase(unittest.TestCase):
         #
         top = set_as_top(Assembly())
         top.add_container('C1', ExprComp(expr='x+1'))
-        top.add_container('D1', Summer())
+        top.add_driver('D1', Summer())
         top.D1.objective = 'C1.f_x'
         top.D1.design = 'C1.x'
-        top.add_container('D2', Summer())
+        top.add_driver('D2', Summer())
         top.D2.objective = 'C1.f_x'
         top.D2.design = 'C1.x'
         try:
@@ -127,10 +127,10 @@ class NestedDriverTestCase(unittest.TestCase):
         top = set_as_top(Assembly())
         top.add_container('C1', ExprComp(expr='x+1'))
         top.add_container('C2', ExprComp(expr='x+1'))
-        top.add_container('D1', Summer())
+        top.add_driver('D1', Summer())
         top.D1.objective = 'C2.f_x'
         top.D1.design = 'C1.x'
-        top.add_container('D2', Summer())
+        top.add_driver('D2', Summer())
         top.D2.objective = 'C1.f_x'
         top.D2.design = 'C2.x'
         try:
@@ -158,8 +158,8 @@ class NestedDriverTestCase(unittest.TestCase):
         top.add_container('C1', ExprComp(expr='x+1'))
         top.add_container('C2', ExprComp(expr='x+1'))
         top.add_container('C3', ExprComp(expr='x+1'))
-        top.add_container('D1', Summer())
-        top.add_container('D2', Summer())
+        top.add_driver('D1', Summer())
+        top.add_driver('D2', Summer())
         
         top.connect('C1.f_x', 'C2.x')
         top.connect('C2.f_x', 'C3.x')
@@ -196,8 +196,8 @@ class NestedDriverTestCase(unittest.TestCase):
         top.add_container('C1', ExprComp(expr='x+1'))
         top.add_container('C2', ExprComp2(expr='x+y'))
         top.add_container('C3', ExprComp(expr='x+1'))
-        top.add_container('D1', Summer())
-        top.add_container('D2', Summer())
+        top.add_driver('D1', Summer())
+        top.add_driver('D2', Summer())
         
         top.connect('C1.f_x', 'C2.x')
         top.connect('C2.f_xy', 'C3.x')
@@ -258,8 +258,8 @@ class NestedDriverTestCase(unittest.TestCase):
         top = set_as_top(Assembly())
         top.add_container('C1', ExprComp2(expr='x+1'))
         top.add_container('C2', ExprComp2(expr='x+y'))
-        top.add_container('D1', Summer())
-        top.add_container('D2', Summer())
+        top.add_driver('D1', Summer())
+        top.add_driver('D2', Summer())
         
         top.connect('C1.f_xy', 'C2.x')
         top.D1.objective = 'C1.f_xy'
@@ -320,9 +320,9 @@ class NestedDriverTestCase(unittest.TestCase):
         top.add_container('C3', ExprComp2(expr='x+1'))
         top.add_container('C4', ExprComp(expr='x+1'))
         top.add_container('C5', ExprComp(expr='x+1'))
-        top.add_container('D1', Summer())
-        top.add_container('D2', Summer())
-        top.add_container('D3', Summer())
+        top.add_driver('D1', Summer())
+        top.add_driver('D2', Summer())
+        top.add_driver('D3', Summer())
         
         top.connect('C1.f_x', 'C2.x')
         top.connect('C2.f_xy', 'C3.x')

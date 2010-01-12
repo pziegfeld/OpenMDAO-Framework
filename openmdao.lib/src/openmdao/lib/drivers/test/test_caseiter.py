@@ -54,8 +54,8 @@ class MyModel(Assembly):
 
     def __init__(self, *args, **kwargs):
         super(MyModel, self).__init__(*args, **kwargs)
-        self.add_container('driver', CaseIteratorDriver())
-        self.driver.add_container('model', DrivenComponent())
+        self.add_driver('driver', CaseIteratorDriver())
+        self.add_container('model', DrivenComponent())
 
 
 class TestCase(unittest.TestCase):
@@ -69,10 +69,10 @@ class TestCase(unittest.TestCase):
         self.model = set_as_top(MyModel())
         self.cases = []
         for i in range(10):
-            inputs = [('x', None, numpy.random.normal(size=4)),
-                      ('y', None, numpy.random.normal(size=10))]
-            outputs = [('rosen_suzuki', None, None),
-                       ('sum_y', None, None)]
+            inputs = [('model.x', None, numpy.random.normal(size=4)),
+                      ('model.y', None, numpy.random.normal(size=10))]
+            outputs = [('model.rosen_suzuki', None, None),
+                       ('model.sum_y', None, None)]
             self.cases.append(Case(inputs, outputs))
 
     def tearDown(self):
@@ -146,10 +146,10 @@ class TestCase(unittest.TestCase):
         # Create cases with missing input 'dc.z'.
         cases = []
         for i in range(2):
-            inputs = [('x', None, numpy.random.normal(size=4)),
-                      ('z', None, numpy.random.normal(size=10))]
-            outputs = [('rosen_suzuki', None, None),
-                       ('sum_y', None, None)]
+            inputs = [('model.x', None, numpy.random.normal(size=4)),
+                      ('model.z', None, numpy.random.normal(size=10))]
+            outputs = [('model.rosen_suzuki', None, None),
+                       ('model.sum_y', None, None)]
             cases.append(Case(inputs, outputs))
 
         self.model.driver.iterator = ListCaseIterator(cases)
@@ -159,8 +159,8 @@ class TestCase(unittest.TestCase):
         self.model.run()
 
         self.assertEqual(len(results), len(cases))
-        msg = "driver: Exception setting 'z':" \
-              " driver.model: object has no attribute 'z'"
+        msg = "driver: Exception setting 'model.z':" \
+              " model: object has no attribute 'z'"
         for case in results:
             self.assertEqual(case.msg, msg)
 
@@ -171,10 +171,10 @@ class TestCase(unittest.TestCase):
         # Create cases with missing output 'dc.sum_z'.
         cases = []
         for i in range(2):
-            inputs = [('x', None, numpy.random.normal(size=4)),
-                      ('y', None, numpy.random.normal(size=10))]
-            outputs = [('rosen_suzuki', None, None),
-                       ('sum_z', None, None)]
+            inputs = [('model.x', None, numpy.random.normal(size=4)),
+                      ('model.y', None, numpy.random.normal(size=10))]
+            outputs = [('model.rosen_suzuki', None, None),
+                       ('model.sum_z', None, None)]
             cases.append(Case(inputs, outputs))
 
         self.model.driver.iterator = ListCaseIterator(cases)
@@ -184,8 +184,8 @@ class TestCase(unittest.TestCase):
         self.model.run()
 
         self.assertEqual(len(results), len(cases))
-        msg = "driver: Exception getting 'sum_z':" \
-              " driver.model: object has no attribute 'sum_z'"
+        msg = "driver: Exception getting 'model.sum_z':" \
+              " 'DrivenComponent' object has no attribute 'sum_z'"
         for case in results:
             self.assertEqual(case.msg, msg)
 

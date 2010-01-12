@@ -22,7 +22,7 @@ class EngineOptimization(Assembly):
         self.add_container('driving_sim', DrivingSim())
 
         # Create CONMIN Optimizer instance
-        self.add_container('driver', CONMINdriver())
+        self.add_driver('driver', CONMINdriver())
         
         # CONMIN Flags
         self.driver.iprint = 0

@@ -63,7 +63,7 @@ follows:
 	        self.add_container('driving_sim', DrivingSim())
 
 	        # Create CONMIN Optimizer instance
-	        self.add_container('driver', CONMINdriver())
+	        self.add_driver('driver', CONMINdriver())
 
 This first section of code defines an assembly called *EngineOptimization.* This
 assembly contains a DrivingSim component and a CONMIN driver, both of which are

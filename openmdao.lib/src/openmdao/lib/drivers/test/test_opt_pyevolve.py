@@ -43,7 +43,7 @@ class TestCase(unittest.TestCase):
     def setUp(self):
         self.top = set_as_top(Assembly())
         self.top.add_container('comp', SphereFunction())
-        self.top.add_container('driver', 
+        self.top.add_driver('driver', 
                                pyevolvedriver.pyevolvedriver())
 
     def tearDown(self):

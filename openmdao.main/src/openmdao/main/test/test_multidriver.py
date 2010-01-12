@@ -87,7 +87,7 @@ class MultiDriverTestCase(unittest.TestCase):
         top.connect('adder2.sum', 'adder3.x2')
         
         # create the first driver
-        drv = top.add_container('driver1', CONMINdriver())
+        drv = top.add_driver('driver1', CONMINdriver())
         drv.itmax = 30
         drv.objective = 'adder3.sum+50.'
         drv.design_vars = ['comp1.x', 'comp2.x', 'comp3.x', 'comp4.x']
@@ -104,8 +104,6 @@ class MultiDriverTestCase(unittest.TestCase):
         
 
     def test_one_driver(self):
-        self.assertEqual(set(['comp4', 'comp1', 'comp3', 'comp2', 'adder1', 'adder2','adder3']), 
-                         self.top.driver1.simple_iteration_set())
         self.top.run()
         self.assertAlmostEqual(self.opt_objective, 
                                self.top.driver1.objective.evaluate(), places=2)
@@ -128,7 +126,7 @@ class MultiDriverTestCase(unittest.TestCase):
         self.top.add_container('comp1a', ExprComp(expr='x**2'))
         self.top.add_container('comp2a', ExprComp(expr='x-5.0*sqrt(x)'))
         self.top.connect('comp1a.f_x', 'comp2a.x')
-        drv = self.top.add_container('driver1a', CONMINdriver())
+        drv = self.top.add_driver('driver1a', CONMINdriver())
         drv.itmax = 40
         drv.objective = 'comp2a.f_x'
         drv.design_vars = ['comp1a.x']
@@ -175,7 +173,7 @@ class MultiDriverTestCase(unittest.TestCase):
         self.top.connect('comp2.f_x', 'comp4.x')
 
         ## create one driver for testing
-        #drv1 = self.top.add_container('driver1', CONMINdriver())
+        #drv1 = self.top.add_driver('driver1', CONMINdriver())
         #drv1.itmax = 30
         #drv1.iprint = 1001
         #drv1.fdch = .000001
@@ -187,7 +185,7 @@ class MultiDriverTestCase(unittest.TestCase):
         ##drv1.constraints = ['comp1.x**2 + comp3.y**2']
             
         # create the inner driver
-        drv1 = self.top.add_container('driver1', CONMINdriver())
+        drv1 = self.top.add_driver('driver1', CONMINdriver())
         drv1.itmax = 30
         drv1.fdch = .000001
         drv1.fdchm = .000001
@@ -197,7 +195,7 @@ class MultiDriverTestCase(unittest.TestCase):
         drv1.upper_bounds = [50]
         
         # create the outer driver
-        drv2 = self.top.add_container('driver2', CONMINdriver())
+        drv2 = self.top.add_driver('driver2', CONMINdriver())
         drv2.itmax = 30
         drv2.fdch = .000001
         drv2.fdchm = .000001

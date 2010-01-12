@@ -19,7 +19,7 @@ class MyModel(Assembly):
         super(MyModel, self).__init__(*args, **kwargs)
 
         # Specify DOE driver.
-        self.add_container('M4_DOE', m4.doe.DOE())
+        self.add_driver('M4_DOE', m4.doe.DOE())
         doe = self.M4_DOE
 
         # The model is just an M4 test component.

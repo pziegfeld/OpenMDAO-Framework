@@ -393,6 +393,7 @@ class ExprEvaluator(str):
         """
         if self._text != self:  # text has changed
             self._parse()
+
         return set([x.split('.')[0] for x in self.var_names])
     
     def refs_valid(self):

@@ -14,6 +14,7 @@ from openmdao.main.component import Component
 from openmdao.main.container import Container
 from openmdao.main.workflow import Workflow
 from openmdao.main.dataflow import Dataflow
+from openmdao.main.driver import Driver
 
 
 class PassthroughTrait(TraitType):
@@ -31,7 +32,7 @@ class Assembly (Component):
     """This is a container of Components. It understands how to connect inputs
     and outputs between its children and how to run a Workflow.
     """
-    drivers = List(IDriver)
+    driver = Instance(Driver)
     workflow = Instance(Workflow)
     
     def __init__(self, doc=None, directory=''):
@@ -86,10 +87,29 @@ class Assembly (Component):
         ## is used in the parent assembly to determine of the graph has changed
         #return super(Assembly, self).get_io_graph()
     
+    def add_driver(self, name, obj):
+        # FIXME: this is only a temporary fix before moving to driverflow
+        if not isinstance(obj, Driver):
+            self.raise_exception("The object passed to add_driver must be a Driver",
+                                 RuntimeError)
+        obj.parent = self
+        obj.name = name
+        setattr(self, name, obj)
+        # if this object is already installed in a hierarchy, then go
+        # ahead and tell the obj (which will in turn tell all of its
+        # children) that its scope tree back to the root is defined.
+        if self._call_tree_rooted is False:
+            obj.tree_rooted()
+        self.driver = obj
+        return obj
+    
     def add_container(self, name, obj):
         """Update dependency graph and call base class add_container.
         Returns the added Container object.
         """
+        if isinstance(obj, Driver):
+            self.raise_exception("The object passed to add_container must not be a Driver",
+                                 RuntimeError)
         obj = super(Assembly, self).add_container(name, obj)
         if isinstance(obj, Component):
             # since the internals of the given Component can change after it's
@@ -97,10 +117,6 @@ class Assembly (Component):
             self._child_io_graphs[obj.name] = None
             self._need_child_io_update = True
             self.workflow.add_node(obj.name)
-        try:
-            self.drivers.append(obj)  # will fail if it's not an IDriver
-        except TraitError:
-            pass
         return obj
         
     def remove_container(self, name):
@@ -119,12 +135,6 @@ class Assembly (Component):
                         self._var_graph.remove_nodes_from(childgraph)
                     del self._child_io_graphs[name]
             
-                if obj in self.drivers:
-                    self.drivers.remove(obj)
-                    
-            for drv in self.drivers:
-                drv.graph_regen_needed()
-                
         return super(Assembly, self).remove_container(name)
     
     def create_passthrough(self, pathname, alias=None):
@@ -260,9 +270,6 @@ class Assembly (Component):
         
         self._io_graph = None
 
-        for drv in self.drivers:
-            drv.graph_regen_needed()
-
     def _filter_internal_edges(self, edges):
         """Return a copy of the given list of edges with edges removed that are
         connecting two variables on the same component.
@@ -319,8 +326,6 @@ class Assembly (Component):
         
         # the io graph has changed, so have to remake it
         self._io_graph = None  
-        for drv in self.drivers:
-            drv.graph_regen_needed()
 
 
     def is_destination(self, varpath):
@@ -341,7 +346,10 @@ class Assembly (Component):
 
     def execute (self):
         """By default, run child components in data flow order."""
-        self.workflow.run()
+        if self.driver:
+            self.driver.run()
+        else:
+            self.workflow.run()
         self._update_boundary_vars()
         
     def _update_boundary_vars (self):

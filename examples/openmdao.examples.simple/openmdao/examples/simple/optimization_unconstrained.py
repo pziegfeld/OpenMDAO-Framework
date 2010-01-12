@@ -22,7 +22,7 @@ class Optimization_Unconstrained(Assembly):
         self.add_container('paraboloid', Paraboloid())
 
         # Create CONMIN Optimizer instance
-        self.add_container('driver', CONMINdriver())
+        self.add_driver('driver', CONMINdriver())
         
         # CONMIN Flags
         self.driver.iprint = 0

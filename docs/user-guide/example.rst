@@ -1006,7 +1006,7 @@ was created and a SimVehicle and CONMINdriver were instantiated:
         	self.add_container('driving_sim', Driving_Sim())
 
 	        # Create CONMIN Optimizer instance
-        	self.add_container('driver', CONMINdriver())
+        	self.add_driver('driver', CONMINdriver())
 
 Note that the syntax for instantiated the CONMIN driver is the same as for any other component or subassembly. The CONMIN 
 driver requires some initialization and connecting before it can be used:
@@ -1032,7 +1032,7 @@ driver requires some initialization and connecting before it can be used:
         	self.add_container('driving_sim', DrivingSim())
 
 	        # Create CONMIN Optimizer instance
-        	self.add_container('driver', CONMINdriver())
+        	self.add_driver('driver', CONMINdriver())
 
 	self = EngineOptimization()		
 		

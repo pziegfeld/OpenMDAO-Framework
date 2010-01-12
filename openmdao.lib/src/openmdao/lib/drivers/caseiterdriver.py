@@ -10,6 +10,7 @@ from openmdao.main.api import Component, Driver
 from openmdao.main.exceptions import RunStopped
 from openmdao.main.interfaces import ICaseIterator
 from openmdao.main.util import filexfer
+from openmdao.main.assembly import Assembly
 
 __all__ = ('CaseIteratorDriver', 'ServerError')
 
@@ -30,7 +31,6 @@ class CaseIteratorDriver(Driver):
     to the ROSE framework.
 
     - The `iterator` socket provides the cases to be evaluated.
-    - The `model` socket provides the model to be executed.
     - The `recorder` socket is used to record results.
     - If `sequential` is True, then the cases are evaluated sequentially. \
       (currently non-sequential evaluation is not supported)
@@ -47,7 +47,7 @@ class CaseIteratorDriver(Driver):
 
     iterator = Instance(ICaseIterator, desc='Cases to evaluate.', required=True)
     recorder = Instance(object, desc='Something to append() to.', required=True)
-    model = Instance(Component, desc='Model to be executed.', required=True)
+    #model = Instance(Component, desc='Model to be executed.', required=True)
     
     sequential = Bool(True, iostatus='in',
                       desc='Evaluate cases sequentially.')
@@ -96,7 +96,7 @@ class CaseIteratorDriver(Driver):
         """
         self._rerun = []
         self._iter = self.iterator.__iter__()
-
+        
         if self.sequential or self._n_servers < 1:
             self.info('Start sequential evaluation.')
             while self._server_ready(None, False):
@@ -110,7 +110,11 @@ class CaseIteratorDriver(Driver):
                 # Must do this before creating any locks or queues.
                 self._replicants += 1
                 version = 'replicant.%d' % (self._replicants)
-                egg_info = self.model.save_to_egg(self.model.name, version)
+                try:
+                    self.parent.driver = None
+                    egg_info = self.parent.save_to_egg(self.parent.name or 'model', version)
+                finally:
+                    self.parent.driver = self
                 self._egg_file = egg_info[0]
                 self._egg_required_distributions = egg_info[1]
                 self._egg_orphan_modules = [name for name, path in egg_info[2]]
@@ -334,7 +338,7 @@ class CaseIteratorDriver(Driver):
     def _model_set(self, server, name, index, value):
         """ Set value in server's model. """
         if server is None:
-            self.model.set(name, value, index)
+            self.parent.set(name, value, index)
         else:
             self._top_levels[server].set(name, value, index)
         return True
@@ -342,7 +346,7 @@ class CaseIteratorDriver(Driver):
     def _model_get(self, server, name, index):
         """ Get value from server's model. """
         if server is None:
-            return self.model.get(name, index)
+            return self.parent.get(name, index)
         else:
             return self._top_levels[server].get(name, index)
 
@@ -351,7 +355,7 @@ class CaseIteratorDriver(Driver):
         self._exceptions[server] = None
         if server is None:
             try:
-                self.model.run()
+                self.parent.workflow.run()
             except Exception, exc:
                 self._exceptions[server] = exc
                 self.exception('Caught exception: %s' % exc)
