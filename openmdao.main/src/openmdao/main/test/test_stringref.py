@@ -8,17 +8,17 @@ from openmdao.main.exceptions import ConstraintError
 from openmdao.main.api import Assembly, Component, StringRef, StringRefArray, set_as_top
 
 class RefComp(Component):   
-    desvar = StringRef(iostatus='out')
-    desvars = StringRefArray(iostatus='out')
-    objective = StringRef(iostatus='in')
-    z = Float(99.9, iostatus='out')
+    desvar = StringRef(io_direction='out')
+    desvars = StringRefArray(io_direction='out')
+    objective = StringRef(io_direction='in')
+    z = Float(99.9, io_direction='out')
             
 class SimpleComp(Component):
-    x = Float(99.9, iostatus='out')
-    y = Float(99.9, iostatus='in')
-    d1 = Float(42., iostatus='in')
-    d1out = Float(11., iostatus='out')
-    array = Array(value=[1., 2., 3.], iostatus='in')
+    x = Float(99.9, io_direction='out')
+    y = Float(99.9, io_direction='in')
+    d1 = Float(42., io_direction='in')
+    d1out = Float(11., io_direction='out')
+    array = Array(value=[1., 2., 3.], io_direction='in')
         
 class StringRefTestCase(unittest.TestCase):
 
@@ -110,11 +110,11 @@ class StringRefTestCase(unittest.TestCase):
 
     def test_novar_expr(self):
         asm = set_as_top(Assembly())
-        asm.add_trait('ref', StringRef(iostatus='in'))
+        asm.add_trait('ref', StringRef(io_direction='in'))
         asm.ref = '1+2'
         self.assertEqual(asm.ref.evaluate(), 3)
         
-        asm.add_trait('refout', StringRef(iostatus='out'))
+        asm.add_trait('refout', StringRef(io_direction='out'))
         try:
             asm.refout = '2'
         except TraitError, err:

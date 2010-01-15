@@ -42,7 +42,7 @@ class Driver(Component):
             super(Driver, self)._pre_execute()
             return
         
-        refnames = self.get_refvar_names(iostatus='in')
+        refnames = self.get_refvar_names(io_direction='in')
         
         if not all(self.get_valids(refnames)):
             self._call_execute = True
@@ -107,31 +107,31 @@ class Driver(Component):
         """Called after each iteration."""
         self._continue = False  # by default, stop after one iteration
 
-    def get_refvar_names(self, iostatus=None):
+    def get_refvar_names(self, io_direction=None):
         """Return a list of names of all StringRef and StringRefArray traits
         in this instance.
         """
-        if iostatus is None:
+        if io_direction is None:
             checker = not_none
         else:
-            checker = iostatus
+            checker = io_direction
         
-        return [n for n,v in self._traits_meta_filter(iostatus=checker).items() 
+        return [n for n,v in self._traits_meta_filter(io_direction=checker).items() 
                     if v.is_trait_type(StringRef) or 
                        v.is_trait_type(StringRefArray)]
         
-    def get_referenced_comps(self, iostatus=None):
+    def get_referenced_comps(self, io_direction=None):
         """Return a set of names of Components that we reference based on the 
-        contents of our StringRefs and StringRefArrays.  If iostatus is
+        contents of our StringRefs and StringRefArrays.  If io_direction is
         supplied, return only component names that are referenced by ref
-        variables with matching iostatus.
+        variables with matching io_direction.
         """
-        if self._ref_comps[iostatus] is None:
+        if self._ref_comps[io_direction] is None:
             comps = set()
         else:
-            return self._ref_comps[iostatus]
+            return self._ref_comps[io_direction]
     
-        for name in self.get_refvar_names(iostatus):
+        for name in self.get_refvar_names(io_direction):
             obj = getattr(self, name)
             if isinstance(obj, list):
                 for entry in obj:
@@ -139,24 +139,24 @@ class Driver(Component):
             else:
                 comps.update(obj.get_referenced_compnames())
                 
-        self._ref_comps[iostatus] = comps
+        self._ref_comps[io_direction] = comps
         return comps
         
-    def get_ref_graph(self, iostatus=None):
+    def get_ref_graph(self, io_direction=None):
         """Returns the dependency graph for this Driver based on
         StringRefs and StringRefArrays.
         """
-        if self._ref_graph[iostatus] is not None:
-            return self._ref_graph[iostatus]
+        if self._ref_graph[io_direction] is not None:
+            return self._ref_graph[io_direction]
         
-        self._ref_graph[iostatus] = nx.DiGraph()
+        self._ref_graph[io_direction] = nx.DiGraph()
         name = self.name
         
-        if iostatus == 'out' or iostatus is None:
-            self._ref_graph[iostatus].add_edges_from([(name,rv) 
-                                  for rv in self.get_referenced_comps(iostatus='out')])
+        if io_direction == 'out' or io_direction is None:
+            self._ref_graph[io_direction].add_edges_from([(name,rv) 
+                                  for rv in self.get_referenced_comps(io_direction='out')])
             
-        if iostatus == 'in' or iostatus is None:
-            self._ref_graph[iostatus].add_edges_from([(rv, name) 
-                                  for rv in self.get_referenced_comps(iostatus='in')])
-        return self._ref_graph[iostatus]
+        if io_direction == 'in' or io_direction is None:
+            self._ref_graph[io_direction].add_edges_from([(rv, name) 
+                                  for rv in self.get_referenced_comps(io_direction='in')])
+        return self._ref_graph[io_direction]

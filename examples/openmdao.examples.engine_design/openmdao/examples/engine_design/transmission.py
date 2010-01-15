@@ -14,28 +14,28 @@ class Transmission(Component):
     
     # set up interface to the framework  
     # Pylint: disable-msg=E1101
-    ratio1 = Float(3.54, iostatus='in', 
+    ratio1 = Float(3.54, io_direction='in', 
                    desc='Gear ratio in First Gear')
-    ratio2 = Float(2.13, iostatus='in', 
+    ratio2 = Float(2.13, io_direction='in', 
                    desc='Gear ratio in Second Gear')
-    ratio3 = Float(1.36, iostatus='in', 
+    ratio3 = Float(1.36, io_direction='in', 
                    desc='Gear ratio in Third Gear')
-    ratio4 = Float(1.03, iostatus='in', 
+    ratio4 = Float(1.03, io_direction='in', 
                    desc='Gear ratio in Fourth Gear')
-    ratio5 = Float(0.72, iostatus='in', 
+    ratio5 = Float(0.72, io_direction='in', 
                    desc='Gear ratio in Fifth Gear')
-    final_drive_ratio = Float(2.8, iostatus='in', 
+    final_drive_ratio = Float(2.8, io_direction='in', 
                               desc='Final Drive Ratio')
-    tire_circ = UnitsFloat(75.0, iostatus='in', units='inch', 
+    tire_circ = UnitsFloat(75.0, io_direction='in', units='inch', 
                            desc='Circumference of tire (inches)')
 
-    current_gear = Int(0, iostatus='in', desc='Current Gear')
-    velocity = UnitsFloat(0., iostatus='in', units='mi/h',
+    current_gear = Int(0, io_direction='in', desc='Current Gear')
+    velocity = UnitsFloat(0., io_direction='in', units='mi/h',
                      desc='Current Velocity of Vehicle')
 
-    RPM = UnitsFloat(1000., iostatus='out', units='1/min',
+    RPM = UnitsFloat(1000., io_direction='out', units='1/min',
                      desc='Engine RPM')        
-    torque_ratio = Float(0., iostatus='out',
+    torque_ratio = Float(0., io_direction='out',
                          desc='Ratio of output torque to engine torque')        
 
     #def __init__(self, doc=None, directory=''):

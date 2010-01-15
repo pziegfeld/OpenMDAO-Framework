@@ -17,17 +17,17 @@ from openmdao.main.api import Driver, StringRef, StringRefArray
 class COBYLA(Driver):
     """ Constrained Optimization BY Linear Approximation. """
     
-    rhobeg = Float(iostatus='in',
+    rhobeg = Float(io_direction='in',
                    desc='reasonable initial changes to the variables')
-    rhoend = Float(iostatus='in',
+    rhoend = Float(io_direction='in',
                    desc='final accuracy (not precisely guaranteed)')
-    maxiters = Int(iostatus='in', desc='maximum number of function iterations')
-    iprint = Int(iostatus='in',
+    maxiters = Int(io_direction='in', desc='maximum number of function iterations')
+    iprint = Int(io_direction='in',
                  desc='print frequency: 0 (no output),1,2,3')
-    min_expr = StringRef(iostatus='in', desc='expression to minimize')
-    constraint_exprs = StringRefArray(iostatus='in',
+    min_expr = StringRef(io_direction='in', desc='expression to minimize')
+    constraint_exprs = StringRefArray(io_direction='in',
                         desc='constraint expressions (must be >=0)')
-    design_vars = StringRefArray(iostatus='in',
+    design_vars = StringRefArray(io_direction='in',
                                  desc='list of design variable names')
         
     def __init__(self, desc=None):

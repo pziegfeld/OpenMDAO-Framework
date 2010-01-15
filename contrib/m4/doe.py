@@ -20,9 +20,9 @@ class DOE(CaseIteratorDriver):
     """ M4 Design Of Experiments driver. """
 
     # No 'Option' variables yet.
-    type = Str('ccd', iostatus='in', desc='Type of experiment design.')
-    n_samples = Range(value=1, low=1, iostatus='in', desc='Number of samples.')
-    lhs = Range(value=2, low=1, iostatus='in',
+    type = Str('ccd', io_direction='in', desc='Type of experiment design.')
+    n_samples = Range(value=1, low=1, io_direction='in', desc='Number of samples.')
+    lhs = Range(value=2, low=1, io_direction='in',
                 desc='???, used by LHS and Rand_LHS.')
 
     def __init__(self, *args, **kwargs):

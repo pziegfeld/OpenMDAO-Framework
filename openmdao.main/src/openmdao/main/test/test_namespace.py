@@ -5,23 +5,23 @@ from enthought.traits.api import Float, Instance
 from openmdao.main.api import Container, Component, Assembly, set_as_top
 
 class DumbContainer2(Container):
-    x = Float(1., iostatus='in')
-    y = Float(2., iostatus='in')
-    z = Float(3., iostatus='in')
+    x = Float(1., io_direction='in')
+    y = Float(2., io_direction='in')
+    z = Float(3., io_direction='in')
     
 class DumbContainer(Container):
-    v1 = Float(1., iostatus='in')
-    v2 = Float(2., iostatus='in')
-    v3 = Float(3., iostatus='in')
+    v1 = Float(1., io_direction='in')
+    v2 = Float(2., io_direction='in')
+    v3 = Float(3., io_direction='in')
     def __init__(self, *args, **kwargs):
         super(DumbContainer, self).__init__(*args, **kwargs)
         self.add_container('cont', DumbContainer2())
     
     
 class SimpleComp(Component):
-    cont_in = Instance(DumbContainer, iostatus='in')
-    cont_out = Instance(DumbContainer, iostatus='out')
-    mult = Float(1., iostatus='in')
+    cont_in = Instance(DumbContainer, io_direction='in')
+    cont_out = Instance(DumbContainer, io_direction='out')
+    mult = Float(1., io_direction='in')
     
     def __init__(self, *args, **kwargs):
         super(SimpleComp, self).__init__(*args, **kwargs)

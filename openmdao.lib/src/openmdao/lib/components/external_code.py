@@ -46,16 +46,16 @@ class ExternalCode(Component):
     PIPE   = subprocess.PIPE
     STDOUT = subprocess.STDOUT
 
-    command = Str('', iostatus='in',
+    command = Str('', io_direction='in',
                   desc='Command to be executed.')
 
-    timeout = UnitsFloat(0., low=0., iostatus='in', units='s',
+    timeout = UnitsFloat(0., low=0., io_direction='in', units='s',
                          desc='Max time to wait for command completion.')
 
-    timed_out = Bool(False, iostatus='out',
+    timed_out = Bool(False, io_direction='out',
                      desc='True if command timed-out.')
 
-    return_code = Any(0, iostatus='out',
+    return_code = Any(0, io_direction='out',
                       desc='Return code from command.')
 
     def __init__(self, doc=None, directory=''):

@@ -35,7 +35,7 @@ class ContainerTestCase(unittest.TestCase):
         self.root.c2.add_container('c21', Container())
         self.root.c2.add_container('c22', Container())
         self.root.c2.c22.add_container('c221', Container())
-        self.root.c2.c22.c221.add_trait('number', Float(3.14, iostatus='in'))
+        self.root.c2.c22.c221.add_trait('number', Float(3.14, io_direction='in'))
 
     def tearDown(self):
         """this teardown function will be called after each test"""
@@ -63,14 +63,14 @@ class ContainerTestCase(unittest.TestCase):
         self.assertEqual(num, 3.14)
 
     def test_get_attribute(self):
-        self.assertEqual(self.root.get('c2.c22.c221').trait('number').iostatus, 
+        self.assertEqual(self.root.get('c2.c22.c221').trait('number').io_direction, 
                          'in')
 
     def test_keys(self):
         lst = [x for x in self.root.keys(recurse=True)]
         self.assertEqual(lst, 
             ['c2', 'c2.c22', 'c2.c22.c221', 'c2.c22.c221.number', 'c2.c21', 'c1'])
-        lst = [x for x in self.root.keys(recurse=True, iostatus='in')]
+        lst = [x for x in self.root.keys(recurse=True, io_direction='in')]
         self.assertEqual(lst, ['c2.c22.c221.number'])
         
     def test_full_items(self):

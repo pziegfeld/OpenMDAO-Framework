@@ -14,7 +14,7 @@ import sys
 from enthought.traits.api import List, Str, Python
 from enthought.traits.trait_base import not_event
 
-from openmdao.main.container import Container
+from openmdao.main.container import Container, VALID, INVALID
 from openmdao.main.filevar import FileMetadata, FileRef
 from openmdao.util.eggsaver import SAVE_CPICKLE
 from openmdao.util.eggobserver import EggObserver
@@ -60,7 +60,7 @@ class Component (Container):
     """
 
     directory = Str('', desc='If non-blank, the directory to execute in.', 
-                    iostatus='in')
+                    io_direction='in')
     external_files = List(FileMetadata)
         
     def __init__(self, doc=None, directory=''):
@@ -143,6 +143,7 @@ class Component (Container):
         for name in self.list_outputs():
             self.set_valid(name, True)
         self._call_execute = False
+        self.state = VALID
         
     def run (self, force=False):
         """Run this object. This should include fetching input variables,
@@ -155,7 +156,7 @@ class Component (Container):
         try:
             self._pre_execute()
             if self._call_execute or force:
-                #if __debug__: self._logger.debug('execute %s' % self.get_pathname())
+                if __debug__: self._logger.debug('execute %s' % self.get_pathname())
                 self.execute()
                 self._post_execute()
         finally:
@@ -567,7 +568,7 @@ class Component (Container):
             for fvarname, fvar, ftrait in fvars:
                 path = fvar.path
                 if path:
-                    is_input = ftrait.iostatus == 'in'
+                    is_input = ftrait.io_direction == 'in'
                     self._list_files(path, package, rel_path, is_input, False,
                                      ftrait.binary, file_list)
 
@@ -678,6 +679,7 @@ class Component (Container):
 
     def invalidate_deps(self, vars, notify_parent=False):
         """Invalidate all of our valid outputs."""
+        self.state = INVALID
         valid_outs = self.list_outputs(valid=True)
         
         for var in vars:

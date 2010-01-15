@@ -6,9 +6,9 @@ from enthought.traits.api import Float, Str, Instance, TraitError
 from openmdao.main.api import Assembly, Component, set_as_top
 
 class Multiplier(Component):
-    rval_in = Float(iostatus='in')
-    rval_out = Float(iostatus='out')
-    mult = Float(iostatus='in')
+    rval_in = Float(io_direction='in')
+    rval_out = Float(io_direction='out')
+    mult = Float(io_direction='in')
     
     def __init__(self):
         super(Multiplier, self).__init__()
@@ -23,10 +23,10 @@ class Multiplier(Component):
         
 class Simple(Component):
     
-    a = Float(iostatus='in')
-    b = Float(iostatus='in')
-    c = Float(iostatus='out')
-    d = Float(iostatus='out')
+    a = Float(io_direction='in')
+    b = Float(io_direction='in')
+    c = Float(io_direction='out')
+    d = Float(io_direction='out')
     
     def __init__(self):
         super(Simple, self).__init__()
@@ -43,15 +43,15 @@ class Simple(Component):
 
 class DummyComp(Component):
     
-    r = Float(iostatus='in')
-    r2 = Float(iostatus='in')
-    s = Str(iostatus='in')
-    rout = Float(iostatus='out')
-    r2out = Float(iostatus='out')
-    sout = Str(iostatus='out')
+    r = Float(io_direction='in')
+    r2 = Float(io_direction='in')
+    s = Str(io_direction='in')
+    rout = Float(io_direction='out')
+    r2out = Float(io_direction='out')
+    sout = Str(io_direction='out')
     
-    dummy_in = Instance(Component, iostatus='in')
-    dummy_out = Instance(Component, iostatus='out')
+    dummy_in = Instance(Component, io_direction='in')
+    dummy_out = Instance(Component, io_direction='out')
     
     def __init__(self):
         super(DummyComp, self).__init__()

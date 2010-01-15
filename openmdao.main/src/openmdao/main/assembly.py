@@ -11,12 +11,20 @@ import networkx as nx
 
 from openmdao.main.interfaces import IDriver
 from openmdao.main.component import Component
-from openmdao.main.container import Container
+from openmdao.main.container import Container, INVALID
 from openmdao.main.workflow import Workflow
+from openmdao.main.asyncworkflow import AsyncWorkflow
 from openmdao.main.dataflow import Dataflow
 from openmdao.main.driver import Driver
 
 
+def _filter_internal_edges(edges):
+    """Return a copy of the given list of edges with edges removed that are
+    connecting two variables on the same component.
+    """
+    return [(u,v) for u,v in edges
+                          if u.split('.', 1)[0] != v.split('.', 1)[0]]
+    
 class PassthroughTrait(TraitType):
     """A trait that can use another trait for validation, but otherwise is
     just a trait that lives on an Assembly boundary and can be connected
@@ -49,11 +57,11 @@ class Assembly (Component):
         
         # add any Variables we may have inherited from our base classes
         # to our _var_graph..
-        for v in self.keys(iostatus=not_none):
+        for v in self.keys(io_direction=not_none):
             if v not in self._var_graph:
                 self._var_graph.add_node(v)
         
-        self.workflow = Dataflow(scope=self)
+        self.workflow = AsyncWorkflow(scope=self)
 
     def get_component_graph(self):
         """Retrieve the dataflow graph of child components."""
@@ -162,7 +170,7 @@ class Assembly (Component):
         if not trait:
             self.raise_exception("the trait named '%s' can't be found" %
                                  pathname, TraitError)
-        iostatus = trait.iostatus
+        io_direction = trait.io_direction
         # the trait.trait_type stuff below is for the case where the trait is actually
         # a ctrait (very common). In that case, trait_type is the actual underlying
         # trait object
@@ -170,28 +178,28 @@ class Assembly (Component):
             getattr(trait.trait_type, 'get') or getattr(trait.trait_type,'set')):
             trait = None  # not sure how to validate using a property
                           # trait without setting it, so just don't use it
-        newtrait = PassthroughTrait(iostatus=iostatus, validation_trait=trait)
+        newtrait = PassthroughTrait(io_direction=io_direction, validation_trait=trait)
         self.add_trait(newname, newtrait)
         setattr(self, newname, val)
 
-        if iostatus == 'in':
+        if io_direction == 'in':
             self.connect(newname, pathname)
         else:
             self.connect(pathname, newname)
 
         return newtrait
 
-    def get_dyn_trait(self, pathname, iostatus=None):
+    def get_dyn_trait(self, pathname, io_direction=None):
         """Retrieves the named trait, attempting to create a Passthrough trait
         on-the-fly if the specified trait doesn't exist.
         """
         trait = self.trait(pathname)
         if trait is None:
             newtrait = self.create_passthrough(pathname)
-            if iostatus is not None and iostatus != newtrait.iostatus:
+            if io_direction is not None and io_direction != newtrait.io_direction:
                 self.raise_exception(
-                    "new trait has iostatus of '%s' but '%s' was expected" %
-                    (newtrait.iostatus, iostatus), TraitError)
+                    "new trait has io_direction of '%s' but '%s' was expected" %
+                    (newtrait.io_direction, io_direction), TraitError)
         return trait
 
     def split_varpath(self, path):
@@ -221,12 +229,12 @@ class Assembly (Component):
                                  (srcpath, destpath), RuntimeError)
         if srccomp is not self and destcomp is not self:
             # it's not a passthrough, so must connect input to output
-            if srctrait.iostatus != 'out':
+            if srctrait.io_direction != 'out':
                 self.raise_exception(
                     '.'.join([srccomp.get_pathname(),srcvarname])+
                     ' must be an output variable',
                     RuntimeError)
-            if desttrait.iostatus != 'in':
+            if desttrait.io_direction != 'in':
                 self.raise_exception(
                     '.'.join([destcomp.get_pathname(),destvarname])+
                     ' must be an input variable',
@@ -242,17 +250,19 @@ class Assembly (Component):
                                getattr(srccomp, srcvarname))
         
         if destcomp is not self:
-            destcomp.set_source(destvarname, srcpath)
             if srccomp is not self: # neither var is on boundary
-                if hasattr(self.workflow, 'connect'):
-                    self.workflow.connect(srccompname, destcompname, 
-                                          srcvarname, destvarname)
+                self.workflow.connect(srccompname, destcompname,
+                                      srcvarname, destvarname)
+                destcomp.set_source(destvarname, srcpath)
+
+        if srccomp is not self:
+            srccomp.link_output(srcvarname, destpath)
         
         vgraph = self.get_var_graph()
         vgraph.add_edge(srcpath, destpath)
             
         # invalidate destvar if necessary
-        if destcomp is self and desttrait.iostatus == 'out': # boundary output
+        if destcomp is self and desttrait.io_direction == 'out': # boundary output
             if destcomp.get_valid(destvarname) and \
                srccomp.get_valid(srcvarname) is False:
                 if self.parent:
@@ -262,7 +272,7 @@ class Assembly (Component):
                     # the parent scope.
                     self.parent.invalidate_deps([destpath], True)
             self.set_valid(destpath, False)
-        elif srccomp is self and srctrait.iostatus == 'in': # boundary input
+        elif srccomp is self and srctrait.io_direction == 'in': # boundary input
             self.set_valid(srcpath, False)
         else:
             destcomp.set_valid(destvarname, False)
@@ -270,13 +280,6 @@ class Assembly (Component):
         
         self._io_graph = None
 
-    def _filter_internal_edges(self, edges):
-        """Return a copy of the given list of edges with edges removed that are
-        connecting two variables on the same component.
-        """
-        return [(u,v) for u,v in edges
-                              if u.split('.', 1)[0] != v.split('.', 1)[0]]
-    
     def disconnect(self, varpath, varpath2=None):
         """If varpath2 is supplied, remove the connection between varpath and
         varpath2. Otherwise, if varpath is the name of a trait, remove all
@@ -311,17 +314,19 @@ class Assembly (Component):
             to_remove.extend(vargraph.edges(varpath)) # outgoing edges
             to_remove.extend(vargraph.in_edges(varpath)) # incoming
         
-        for src,sink in self._filter_internal_edges(to_remove):
+        for src,sink in _filter_internal_edges(to_remove):
             vtup = sink.split('.', 1)
+            utup = src.split('.',1)
             if len(vtup) > 1:
                 getattr(self, vtup[0]).remove_source(vtup[1])
                 # if its a connection between two children 
                 # (no boundary connections) then remove a connection 
                 # between two components in the component graph
-                utup = src.split('.',1)
-                if len(utup)>1 and hasattr(self.workflow, 'disconnect'):
+                if len(utup)>1:
                     self.workflow.disconnect(utup[0], vtup[0])
-                
+            if len(utup) > 1:  # source is on a child
+                getattr(self, utup[0]).unlink_output(utup[1], sink)
+        
         vargraph.remove_edges_from(to_remove)
         
         # the io graph has changed, so have to remake it
@@ -367,15 +372,18 @@ class Assembly (Component):
         
     def stop(self):
         """Stop the workflow."""
-        self.workflow.stop()
+        if self.driver:
+            self.driver.stop()
+        else:
+            self.workflow.stop()
     
     def list_connections(self, show_passthrough=True):
         """Return a list of tuples of the form (outvarname, invarname).
         """
         if show_passthrough:
-            return self._filter_internal_edges(self.get_var_graph().edges())
+            return _filter_internal_edges(self.get_var_graph().edges())
         else:
-            return self._filter_internal_edges([(outname,inname) for outname,inname in 
+            return _filter_internal_edges([(outname,inname) for outname,inname in 
                                                 self.get_var_graph().edges_iter() 
                                                 if '.' in outname and '.' in inname])
 
@@ -390,12 +398,9 @@ class Assembly (Component):
         pred = vargraph.pred
         
         for vname in varnames:
-            preds = pred.get(vname, '')
+            preds = pred.get(vname, ())
             if len(preds) == 0: 
                 continue
-            elif len(preds) > 1:
-                self.raise_exception("variable '%s' has multiple sources %s" %
-                                     (vname, preds.keys()), RuntimeError)
             updated = True
             srcname = preds.keys()[0]
             srccompname,srccomp,srcvarname = self.split_varpath(srcname)
@@ -452,9 +457,11 @@ class Assembly (Component):
         return valids
 
     def invalidate_deps(self, varnames, notify_parent=False):
-        """Mark all Variables invalid that depend on varnames. Returns a list
-        of our newly invalidated boundary outputs.
+        """Mark all Variables invalid that depend on varnames. 
+        
+        Returns a list of our newly invalidated boundary outputs.
         """
+        self.state = INVALID
         vargraph = self.get_var_graph()
         succ = vargraph.succ  #successor nodes in the graph
         stack = set(varnames)
@@ -473,7 +480,7 @@ class Assembly (Component):
             for vname in succ.get(name, []):
                 tup = vname.split('.', 1)
                 if len(tup) == 1:  #boundary var or Component
-                    if self.trait(vname).iostatus == 'out':
+                    if self.trait(vname).io_direction == 'out':
                         # it's an output boundary var
                         outs.append(vname)
                 else:  # a var from a child component 
@@ -489,6 +496,51 @@ class Assembly (Component):
                 self.set_valid(out, False)
             if notify_parent and self.parent:
                 self.parent.invalidate_deps(
+                    ['.'.join([self.name,n]) for n in outs], 
+                    notify_parent)
+        return outs
+
+    def disable_deps(self, varnames, notify_parent=False):
+        """Mark all Variables disabled that depend on varnames. If
+        an input is disabled, the corresponding component will not
+        execute.
+        
+        Returns a list of our newly disabled boundary outputs.
+        """
+        vargraph = self.get_var_graph()
+        succ = vargraph.succ  #successor nodes in the graph
+        stack = set(varnames)
+        outs = []
+        while len(stack) > 0:
+            name = stack.pop()
+            if name in vargraph:
+                tup = name.split('.', 1)
+                if len(tup)==1:
+                    self.set_enabled(name, False)
+                else:
+                    getattr(self, tup[0]).set_enabled(tup[1], False)
+            else:
+                self.raise_exception("%s is not an io trait" % name,
+                                     RuntimeError)
+            for vname in succ.get(name, []):
+                tup = vname.split('.', 1)
+                if len(tup) == 1:  #boundary var or Component
+                    if self.trait(vname).io_direction == 'out':
+                        # it's an output boundary var
+                        outs.append(vname)
+                else:  # a var from a child component 
+                    compname, compvar = tup
+                    comp = getattr(self, compname)
+                    if comp.get_enabled(compvar):  # node is an enabled Variable
+                        for newvar in comp.disable_deps([compvar]):
+                            stack.add('.'.join([compname, newvar]))
+                        stack.add(vname)
+        
+        if len(outs) > 0:
+            for out in outs:
+                self.set_enabled(out, False)
+            if notify_parent and self.parent:
+                self.parent.disable_deps(
                     ['.'.join([self.name,n]) for n in outs], 
                     notify_parent)
         return outs

@@ -30,30 +30,30 @@ class MidFidelity(Assembly):
 
     # Inputs.
     # No 'Option' variables yet.
-    doe_type = Str('lhs', iostatus='in', 
+    doe_type = Str('lhs', io_direction='in', 
                    desc='Type of DOE used to generate response surface.')
-    rs_type = Str('quadratic', iostatus='in', desc='Type of response surface.')
-    n_samples = Range(value=1, low=1, iostatus='in', desc='Number of samples.')
-    tolerance = Float(1.0e10, iostatus='in', desc='?')
-    correction_function = Int(1, iostatus='in',
+    rs_type = Str('quadratic', io_direction='in', desc='Type of response surface.')
+    n_samples = Range(value=1, low=1, io_direction='in', desc='Number of samples.')
+    tolerance = Float(1.0e10, io_direction='in', desc='?')
+    correction_function = Int(1, io_direction='in',
                               desc='Type of correction function.')
-    w_h = Float(0.5, iostatus='in', desc='?')
-    accuracy_test_type = Int(2, iostatus='in', 
+    w_h = Float(0.5, io_direction='in', desc='?')
+    accuracy_test_type = Int(2, io_direction='in', 
                              desc='Method for testing accuracy of response.')
-    n_samples_test = Range(value=10, low=1, iostatus='in',
+    n_samples_test = Range(value=10, low=1, io_direction='in',
                            desc='Number of additional samples for additional-points test.')
-    ntheta = Int(3, iostatus='in', 
+    ntheta = Int(3, io_direction='in', 
                  desc='For Kriging method, ntheta=1(SA),2(Cobyla),3(BFGS)')
     
     # TODO: change these to delegates or passthroughs
     
-    sample_points = Array(iostatus='out', desc='Points used to make response',
+    sample_points = Array(io_direction='out', desc='Points used to make response',
                           ref_name='sample_points', ref_parent='midfi_model')
 
-    lofi_results = Array(iostatus='out', desc='Points used to make response',
+    lofi_results = Array(io_direction='out', desc='Points used to make response',
                          ref_name='lofi_results', ref_parent='midfi_model')
 
-    hifi_results = Array(iostatus='out', desc='Points used to make response',
+    hifi_results = Array(io_direction='out', desc='Points used to make response',
                          ref_name='hifi_results', ref_parent='midfi_model')
     
     #name='M4_MidFi', 

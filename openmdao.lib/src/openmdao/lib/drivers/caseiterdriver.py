@@ -49,13 +49,13 @@ class CaseIteratorDriver(Driver):
     recorder = Instance(object, desc='Something to append() to.', required=True)
     #model = Instance(Component, desc='Model to be executed.', required=True)
     
-    sequential = Bool(True, iostatus='in',
+    sequential = Bool(True, io_direction='in',
                       desc='Evaluate cases sequentially.')
 
-    reload_model = Bool(True, iostatus='in',
+    reload_model = Bool(True, io_direction='in',
                         desc='Reload model between executions.')
 
-    max_retries = Range(value=1, low=0, iostatus='in',
+    max_retries = Range(value=1, low=0, io_direction='in',
                         desc='Number of times to retry a case.')
 
     def __init__(self, *args, **kwargs):

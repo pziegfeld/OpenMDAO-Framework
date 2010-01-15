@@ -37,8 +37,8 @@ class OptRosenSuzukiComponent(Component):
          X = (0.0, 1.0, 2.0, -1.0)
     """
     
-    x = Array(iostatus='in')
-    result = Float(iostatus='out')
+    x = Array(io_direction='in')
+    result = Float(io_direction='out')
     
     # pylint: disable-msg=C0103
     def __init__(self, doc=None):

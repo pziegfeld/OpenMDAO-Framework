@@ -16,10 +16,10 @@ class Summer(Driver):
     """Sums the objective over some number of iterations, feeding
     its current sum back into the specified design variable."""
     
-    objective = StringRef(iostatus='in')
-    design = StringRef(iostatus='out')
-    max_iterations = Int(1, iostatus='in')
-    sum = Float(iostatus='out')
+    objective = StringRef(io_direction='in')
+    design = StringRef(io_direction='out')
+    max_iterations = Int(1, io_direction='in')
+    sum = Float(io_direction='out')
     
     def __init__(self):
         super(Summer, self).__init__()
@@ -49,9 +49,9 @@ class Summer(Driver):
 class ExprComp(Component):
     """Evaluates an expression based on the input x and assigns it to f_x"""
     
-    x = Float(iostatus='in')
-    f_x = Float(iostatus='out')
-    expr = Str('x', iostatus='in')
+    x = Float(io_direction='in')
+    f_x = Float(io_direction='out')
+    expr = Str('x', io_direction='in')
 
     def __init__(self, expr='x'):
         super(ExprComp, self).__init__()
@@ -68,10 +68,10 @@ class ExprComp(Component):
 class ExprComp2(Component):
     """Evaluates an expression based on the inputs x & y and assigns it to f_xy"""
     
-    x = Float(iostatus='in')
-    y = Float(iostatus='in')
-    f_xy = Float(iostatus='out')
-    expr = Str('x', iostatus='in')
+    x = Float(io_direction='in')
+    y = Float(io_direction='in')
+    f_xy = Float(io_direction='out')
+    expr = Str('x', io_direction='in')
     
     def __init__(self, expr='x'):
         super(ExprComp2, self).__init__()

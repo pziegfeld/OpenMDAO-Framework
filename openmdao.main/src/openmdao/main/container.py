@@ -141,7 +141,7 @@ class PathProperty(TraitType):
 
     def set(self, obj, name, value):
         """Set the value of the referenced attribute."""
-        if self.iostatus == 'out':
+        if self.io_direction == 'out':
             raise TraitError('%s is an output trait and cannot be set' % name)
         
         if self.trait:
@@ -149,7 +149,26 @@ class PathProperty(TraitType):
         
         setattr(self._ref() or self._resolve(obj), self._last_name, value)
     
-        
+# Component states.
+INVALID = 0
+READY = 1
+RUNNING = 2
+STOPPED = 3
+INTERRUPTED = 4
+ERROR = 5
+VALID = 6
+
+# Component state strings
+state_strings = [
+     'invalid',
+     'ready',
+     'running',
+     'stopped',
+     'interrupted',
+     'error',
+     'valid',
+]
+
 class Container(HasTraits):
     """ Base class for all objects having Traits that are visible 
     to the framework"""
@@ -165,8 +184,12 @@ class Container(HasTraits):
     def __init__(self, doc=None):
         super(Container, self).__init__() 
         self._valid_dict = {}  # contains validity flag for each io Trait
+        self._enabled_dict = {}  # contains enabled flag for each io Trait
+        self._enabled = True
         self._sources = {}  # for checking that destination traits cannot be 
-                          # set by other objects
+                            # set by other objects
+        self.linked_outputs = {} # outputs that are being used by other components
+                                 # -has the form: { <outputname>: [<destpath1>, destpath2>, ...] }
         # for keeping track of dynamically added traits for serialization
         self._added_traits = {}  
                           
@@ -181,6 +204,8 @@ class Container(HasTraits):
         
         if doc is not None:
             self.__doc__ = doc
+            
+        self.state = INVALID
 
         # TODO: see about turning this back into a regular logger and just
         # handling its unpickleability in __getstate__/__setstate__ in
@@ -197,11 +222,11 @@ class Container(HasTraits):
             if isinstance(obj, FileRef):
                 setattr(self, name, obj.copy(owner=self))
 
-        # Call _io_trait_changed if any trait having 'iostatus' metadata is
+        # Call _io_trait_changed if any trait having 'io_direction' metadata is
         # changed. We originally used the decorator @on_trait_change for this,
         # but it failed to be activated properly when our objects were
         # unpickled.
-        self.on_trait_change(self._io_trait_changed, '+iostatus')
+        self.on_trait_change(self._io_trait_changed, '+io_direction')
         
         # keep track of modifications to our parent
         self.on_trait_change(self._parent_modified, 'parent')
@@ -290,8 +315,8 @@ class Container(HasTraits):
         self.__dict__.update(state)
         
         # restore call to _io_trait_changed to catch changes to any trait
-        # having 'iostatus' metadata
-        self.on_trait_change(self._io_trait_changed, '+iostatus')
+        # having 'io_direction' metadata
+        self.on_trait_change(self._io_trait_changed, '+io_direction')
         
         # restore dynamically added traits, since they don't seem
         # to get restored automatically
@@ -342,13 +367,12 @@ class Container(HasTraits):
         return super(Container, self).trait_get(*names, **metadata)
     
         
-    # call this if any trait having 'iostatus' metadata is changed    
-    #@on_trait_change('+iostatus') 
+    # call this if any trait having 'io_direction' metadata is changed    
     def _io_trait_changed(self, obj, name, old, new):
         # setting old to Undefined is a kludge to bypass the destination check
         # when we call this directly from Assembly as part of setting this
         # attribute from an existing connection.
-        if self.trait(name).iostatus == 'in':
+        if self.trait(name).io_direction == 'in':
             if old is not Undefined and name in self._sources:
                 # bypass the callback here and set it back to the old value
                 self._trait_change_notify(False)
@@ -360,10 +384,14 @@ class Container(HasTraits):
                     "'%s' is already connected to source '%s' and "
                     "cannot be directly set"%
                     (name, self._sources[name]), TraitError)
-            self._call_execute = True
-        if self.get_valid(name):  # if var is not already invalid
+            else:
+                self._call_execute = True
+                # invalidate all of our outputs
+                self.invalidate_deps([name], notify_parent=True)
+                self.set_valid(name, True) # input is valid when set
+        elif self.get_valid(name):  # if var is output and not already invalid
             self.invalidate_deps([name], notify_parent=True)
-
+    
     # error reporting stuff
     def _get_log_level(self):
         """Return logging message level."""
@@ -398,6 +426,36 @@ class Container(HasTraits):
         
         return getattr(self, name)
         
+    def is_ready(self):
+        """ Return True if this component is ready (and needs) to run. """
+        if self.state == READY:
+            return True
+        elif self.state == VALID:
+            return False
+
+        for name in self.keys(io_direction='in'):
+            if not self.get_enabled(name) or not self.get_valid(name):
+                return False  # Not ready -- not all inputs valid.
+        return True
+
+    def set_ready(self):
+        """ Set this component as enabled and ready. """
+        self._enabled = True
+        self.state = READY
+
+    def is_valid(self, required_outputs=None):
+        """ Return True if this component's outputs are valid, which means that
+        it does not need to run."""
+        if not self._enabled:
+            return False
+        elif required_outputs is None:
+            return self.state == VALID
+        else:
+            for name in required_outputs:
+                if name in self.linked_outputs and not get_valid(name):
+                    return False
+            return True
+        
     def get_valid(self, name):
         """Get the value of the validity flag for the io trait with the given
         name.
@@ -405,14 +463,34 @@ class Container(HasTraits):
         valid = self._valid_dict.get(name, Missing)
         if valid is Missing:
             trait = self.trait(name)
-            if trait and trait.iostatus:
-                self._valid_dict[name] = False
-                return False
+            if trait and trait.io_direction:
+                if trait.io_direction == 'out':
+                    self._valid_dict[name] = False
+                    return False
+                else:
+                    self._valid_dict[name] = True  # inputs start out valid
+                    return True
             else:
                 self.raise_exception(
                     "cannot get valid flag of '%s' because it's not "
                     "an io trait." % name, RuntimeError)
         return valid
+    
+    def get_enabled(self, name):
+        """Get the value of the enabled flag for the io trait with the given
+        name.
+        """
+        enabled = self._enabled_dict.get(name, Missing)
+        if enabled is Missing:
+            trait = self.trait(name)
+            if trait and trait.io_direction:
+                self._enabled_dict[name] = True
+                return True
+            else:
+                self.raise_exception(
+                    "cannot get enabled flag of '%s' because it's not "
+                    "an io trait." % name, RuntimeError)
+        return enabled
     
     def get_valids(self, names):
         """Get a list of validity flags for the io traits with the given
@@ -426,12 +504,30 @@ class Container(HasTraits):
             self._valid_dict[name] = valid
         else:
             trait = self.trait(name)
-            if trait and trait.iostatus:
+            if trait and trait.io_direction:
                 self._valid_dict[name] = valid
             else:
                 self.raise_exception(
                     "cannot set valid flag of '%s' because "
                     "it's not an io trait." % name, RuntimeError)
+
+    def set_enabled(self, name, enabled):
+        """Mark the io trait with the given name as valid or invalid."""
+        if name in self._enabled_dict:
+            self._enabled_dict[name] = enabled
+        else:
+            trait = self.trait(name)
+            if trait and trait.io_direction:
+                self._enabled_dict[name] = enabled
+            else:
+                self.raise_exception(
+                    "cannot set enabled flag of '%s' because "
+                    "it's not an io trait." % name, RuntimeError)
+        if enabled == False:
+            self._enabled = False
+        else:
+            if all(self._enabled_dict.values()):
+                self._enabled = True
 
     def check_config (self):
         """Verify that the configuration of this component is correct. This
@@ -520,21 +616,21 @@ class Container(HasTraits):
             
     def revert_to_defaults(self, recurse=True):
         """Sets the values of all of the inputs to their default values."""
-        self.reset_traits(iostatus='in')
+        self.reset_traits(io_direction='in')
         if recurse:
             for cname in self.list_containers():
                 getattr(self, cname).revert_to_defaults(recurse)
             
     def dump(self, recurse=False, stream=None):
-        """Print all items having iostatus metadata and
+        """Print all items having io_direction metadata and
         their corresponding values to the given stream. If the stream
         is not supplied, it defaults to sys.stdout.
         """
         pprint.pprint(dict([(n,str(v)) 
                         for n,v in self.items(recurse=recurse, 
-                                              iostatus=not_none)]),
+                                              io_direction=not_none)]),
                       stream)
-    
+                
     def items(self, recurse=False, **metadata):
         """Return a list of tuples of the form (rel_pathname, obj) for each
         trait of this Container that matches the given metadata. If recurse is
@@ -564,7 +660,7 @@ class Container(HasTraits):
         the the list will contain names of inputs with matching validity.
         """
         if self._input_names is None:
-            self._input_names = self.keys(iostatus='in')
+            self._input_names = self.keys(io_direction='in')
             
         if valid is None:
             return self._input_names
@@ -572,12 +668,25 @@ class Container(HasTraits):
             fval = self.get_valid
             return [n for n in self._input_names if fval(n)==valid]
         
+    def get_outgoing_data(self):
+        """Return a dict containing output names, values and names of any
+        variables that are linked to those outputs.  The form is:
+        { <outname>: (value, list_of_linked_vars), <outname2>: (value2, ...) ... }
+        
+        Only valid, enabled outputs will be added to the returned dict.
+        """
+        outdata = {}
+        for name, lst in self.linked_outputs.items():
+            if self.get_valid(name) and self.get_enabled(name):
+                outdata[name] = (getattr(self, name), lst)
+        return outdata
+    
     def list_outputs(self, valid=None):
         """Return a list of names of output values. If valid is not None,
         the the list will contain names of outputs with matching validity.
         """
         if self._output_names is None:
-            self._output_names = self.keys(iostatus='out')
+            self._output_names = self.keys(io_direction='out')
             
         if valid is None:
             return self._output_names
@@ -641,7 +750,7 @@ class Container(HasTraits):
                     if isinstance(obj, Container):
                         if not recurse:
                             yield (name, obj)
-                    elif trait.iostatus is not None:
+                    elif trait.io_direction is not None:
                         yield (name, obj)
 
     
@@ -739,7 +848,20 @@ class Container(HasTraits):
                 return getattr(obj, '.'.join(tup[1:]))
             else:
                 return obj._array_get('.'.join(tup[1:]), index)
-     
+    
+    def link_output(self, srcname, destpath):
+        if srcname not in self.linked_outputs:
+            self.linked_outputs[srcname] = []
+        self.linked_outputs[srcname].append(destpath)
+        
+    def unlink_output(self, srcname, destpath):
+        self.linked_outputs[srcname].remove(destpath)
+        if len(self.linked_outputs[srcname]) == 0:
+            del self.linked_outputs[srcname]
+    
+    def unlink_output(self, srcname, destpath):
+        self.linked_outputs[srcname].remove(destpath)
+    
     def set_source(self, name, source):
         """Mark the named io trait as a destination by registering a source
         for it, which will prevent it from being set directly or connected 
@@ -765,7 +887,7 @@ class Container(HasTraits):
             src = self._sources.get(name, None)
         trait = self.trait(name)
         if trait:
-            if trait.iostatus != 'in' and src is not None and src != srcname:
+            if trait.io_direction != 'in' and src is not None and src != srcname:
                 self.raise_exception(
                     "'%s' is not an input trait and cannot be set" %
                     name, TraitError)
@@ -1029,8 +1151,8 @@ class Container(HasTraits):
             self._io_graph = nx.DiGraph()
             io_graph = self._io_graph
             name = self.name
-            ins = ['.'.join([name, v]) for v in self.keys(iostatus='in')]
-            outs = ['.'.join([name, v]) for v in self.keys(iostatus='out')]
+            ins = ['.'.join([name, v]) for v in self.keys(io_direction='in')]
+            outs = ['.'.join([name, v]) for v in self.keys(io_direction='out')]
             
             # add nodes for all of the variables
             io_graph.add_nodes_from(ins)
@@ -1041,18 +1163,18 @@ class Container(HasTraits):
                 io_graph.add_edges_from([(invar, o) for o in outs])
         return self._io_graph
     
-    def _build_trait(self, pathname, iostatus=None, trait=None):
+    def _build_trait(self, pathname, io_direction=None, trait=None):
         """Asks the component to dynamically create a trait for the 
         attribute given by ref_name, based on whatever knowledge the
         component has of that attribute.
         """
         objtrait, value = self._find_trait_and_value(pathname)
-        if iostatus is None and objtrait is not None:
-            iostatus = objtrait.iostatus
+        if io_direction is None and objtrait is not None:
+            io_direction = objtrait.io_direction
         if trait is None:
             trait = objtrait
         # if we make it to here, object specified by ref_name exists
-        return PathProperty(ref_name=pathname, iostatus=iostatus, 
+        return PathProperty(ref_name=pathname, io_direction=io_direction, 
                             trait=trait)
     
     def _find_trait_and_value(self, pathname):
@@ -1074,14 +1196,14 @@ class Container(HasTraits):
         else:
             return (None, None)
 
-    def create_io_traits(self, obj_info, iostatus='in'):
+    def create_io_traits(self, obj_info, io_direction='in'):
         """Create io trait(s) specified by the contents of obj_info. Calls
         _build_trait(), which can be overridden by subclasses, to create each
         trait.
         
         obj_info is assumed to be either a string, a tuple, or an iterator
         that returns strings or tuples. Tuples must contain a name and an
-        alias, and my optionally contain an iostatus and a validation trait.
+        alias, and my optionally contain an io_direction and a validation trait.
         
         For example, the following are valid calls:
 
@@ -1096,7 +1218,7 @@ class Container(HasTraits):
             lst = obj_info
 
         for entry in lst:
-            iostat = iostatus
+            iostat = io_direction
             trait = None
             
             if isinstance(entry, basestring):
@@ -1106,7 +1228,7 @@ class Container(HasTraits):
                 name = entry[0]  # wrapper name
                 ref_name = entry[1] or name # internal name
                 try:
-                    iostat = entry[2] # optional iostatus
+                    iostat = entry[2] # optional io_direction
                     trait = entry[3]  # optional validation trait
                 except IndexError:
                     pass
@@ -1117,7 +1239,7 @@ class Container(HasTraits):
                            self._build_trait(ref_name, iostat, trait))
         
 
-    def get_dyn_trait(self, name, iostatus=None):
+    def get_dyn_trait(self, name, io_direction=None):
         """Retrieves the named trait, attempting to create it on-the-fly if
         it doesn't already exist.
         """
@@ -1125,7 +1247,7 @@ class Container(HasTraits):
         if trait:
             return trait
         try:
-            return self.create_alias(name, iostatus)
+            return self.create_alias(name, io_direction)
         except AttributeError:
             self.raise_exception("Cannot locate trait named '%s'" %
                                  name, NameError)
@@ -1142,7 +1264,7 @@ class Container(HasTraits):
             alias = path
         oldtrait = self.trait(alias)
         if oldtrait is None:
-            newtrait = self._build_trait(path, iostatus=io_status, trait=trait)
+            newtrait = self._build_trait(path, io_direction=io_status, trait=trait)
             self.add_trait(alias, newtrait)
             return newtrait
         else:

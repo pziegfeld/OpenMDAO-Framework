@@ -52,13 +52,13 @@ class VarFi(MidFidelity):
     """ Example variable fidelity component. """
 
     # Inputs.
-    x = Range(value=0., low=0., high=5., iostatus='in', desc='X input value.')
-    y = UnitsFloat(default_value=0., low=0., high=5., units='m', iostatus='in',
+    x = Range(value=0., low=0., high=5., io_direction='in', desc='X input value.')
+    y = UnitsFloat(default_value=0., low=0., high=5., units='m', io_direction='in',
                    desc='Y input value.')
 
     # Outputs.
-    z1 = Float(0., iostatus='out', desc='exp(x) + exp(y)')
-    z2 = Float(0., iostatus='out',
+    z1 = Float(0., io_direction='out', desc='exp(x) + exp(y)')
+    z2 = Float(0., io_direction='out',
                desc='10.0*(x-2.0)**2 + 10.0*(y-1.5)**2 + 10.0')
         
     def __init__(self, *args, **kwargs):
