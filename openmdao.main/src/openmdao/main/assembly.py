@@ -251,8 +251,7 @@ class Assembly (Component):
         
         if destcomp is not self:
             if srccomp is not self: # neither var is on boundary
-                self.workflow.connect(srccompname, destcompname,
-                                      srcvarname, destvarname)
+                self.workflow.connect(srcpath, destpath)
                 destcomp.set_source(destvarname, srcpath)
 
         if srccomp is not self:
@@ -323,7 +322,7 @@ class Assembly (Component):
                 # (no boundary connections) then remove a connection 
                 # between two components in the component graph
                 if len(utup)>1:
-                    self.workflow.disconnect(utup[0], vtup[0])
+                    self.workflow.disconnect(src, sink)
             if len(utup) > 1:  # source is on a child
                 getattr(self, utup[0]).unlink_output(utup[1], sink)
         
