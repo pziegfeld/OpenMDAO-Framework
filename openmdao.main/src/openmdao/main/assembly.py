@@ -135,6 +135,13 @@ class Assembly (Component):
             # if the named object is a Component, then assume it must
             # be removed from our workflow
             if isinstance(obj, Component):
+                start = name + '.'
+                edges = [(u,v) for u,v in self._var_graph.edges() 
+                                  if (u.startswith(start) or v.startswith(start)) and
+                                  u.split('.')[0] != v.split('.')[0]]
+                for src,sink in edges:
+                    self.disconnect(src, sink)
+                
                 self.workflow.remove_node(obj.name)
                 
                 if name in self._child_io_graphs:
@@ -287,7 +294,7 @@ class Assembly (Component):
         and outputs. 
         """
         vargraph = self.get_var_graph()
-        if varpath not in vargraph:
+        if varpath not in vargraph:  # a boundary variable name
             tup = varpath.split('.', 1)
             if len(tup) == 1 and isinstance(getattr(self, varpath), Component):
                 comp = getattr(self, varpath)
@@ -314,16 +321,16 @@ class Assembly (Component):
             to_remove.extend(vargraph.in_edges(varpath)) # incoming
         
         for src,sink in _filter_internal_edges(to_remove):
+            utup = src.split('.', 1)
             vtup = sink.split('.', 1)
-            utup = src.split('.',1)
             if len(vtup) > 1:
                 getattr(self, vtup[0]).remove_source(vtup[1])
                 # if its a connection between two children 
                 # (no boundary connections) then remove a connection 
                 # between two components in the component graph
-                if len(utup)>1:
+                if len(utup) > 1:
                     self.workflow.disconnect(src, sink)
-            if len(utup) > 1:  # source is on a child
+            if len(utup) > 1:
                 getattr(self, utup[0]).unlink_output(utup[1], sink)
         
         vargraph.remove_edges_from(to_remove)
@@ -350,13 +357,14 @@ class Assembly (Component):
 
     def execute (self):
         """By default, run child components in data flow order."""
+        self._update_inputs_from_boundary(self.list_inputs(valid=True))
         if self.driver:
             self.driver.run()
         else:
             self.workflow.run()
-        self._update_boundary_vars()
+        self._update_boundary_outputs()
         
-    def _update_boundary_vars (self):
+    def _update_boundary_outputs (self):
         """Update output variables on our bounary."""
         invalid_outs = self.list_outputs(valid=False)
         vgraph = self.get_var_graph()
@@ -366,8 +374,16 @@ class Assembly (Component):
                 setattr(self, out, self.get(inedges[0][0]))
 
     def step(self):
-        """Execute a single child component and return."""
-        self.workflow.step()
+        """ Execute one workflow 'step'. """
+        if self.workflow.is_active:
+            compnames = None
+        else:
+            self._update_inputs_from_boundary(self.list_inputs(valid=True))
+            compnames = self._compnames
+        try:
+            self.workflow.step(compnames)
+        except StopIteration:
+            self.state = VALID
         
     def stop(self):
         """Stop the workflow."""
@@ -386,54 +402,101 @@ class Assembly (Component):
                                                 self.get_var_graph().edges_iter() 
                                                 if '.' in outname and '.' in inname])
 
-    def update_inputs(self, varnames):
-        """Transfer input data to input variables on the specified component.
-        The varnames iterator is assumed to contain names that include the
-        component name, for example: ['comp1.a', 'comp1.b'].
-        """
-        updated = False  # this becomes True if we actually update any inputs
-        parent = self.parent
-        vargraph = self.get_var_graph()
-        pred = vargraph.pred
+    #def update_inputs(self, varnames):
+        #"""Transfer input data to input variables on the specified component.
+        #The varnames iterator is assumed to contain names that include the
+        #component name, for example: ['comp1.a', 'comp1.b'].
+        #"""
+        #parent = self.parent
+        #vargraph = self.get_var_graph()
+        #pred = vargraph.pred
         
-        for vname in varnames:
-            preds = pred.get(vname, ())
-            if len(preds) == 0: 
-                continue
-            updated = True
-            srcname = preds.keys()[0]
-            srccompname,srccomp,srcvarname = self.split_varpath(srcname)
-            destcompname,destcomp,destvarname = self.split_varpath(vname)
+        #srcvars_needed = {}
+        #for vname in varnames:
+            #preds = pred.get(vname, ())
+            #if len(preds) == 0: 
+                #continue
+            #srcname = preds.keys()[0]
+            #srccompname,srccomp,srcvarname = self.split_varpath(srcname)
+            #destcompname,destcomp,destvarname = self.split_varpath(vname)
 
-            if srccomp.get_valid(srcvarname) is False:  # source is invalid 
-                # need to backtrack to get a valid source value
-                if srccompname is None: # a boundary var
-                    if parent:
-                        parent.update_inputs(['.'.join([self.name, srcname])])
-                    else:
-                        srccomp.set_valid(srcvarname, True) # validate source
+            #if srccomp.get_valid(srcvarname) is False:  # source is invalid 
+                ## need to backtrack to get a valid source value
+                #if srccompname is None: # a boundary var
+                    #if parent:
+                        #parent.update_inputs(['.'.join([self.name, srcname])])
+                    #else:
+                        #srccomp.set_valid(srcvarname, True) # validate source
+                #else:
+                    #if srccompname not in srcvars_needed:
+                        #srcvars_needed[srccompname] = set()
+                    #srcvars_needed[srccompname].add(srcvarname)
+                    ##srccomp.update_outputs([srcvarname])
+
+            #try:
+                #srcval = srccomp.get_wrapped_attr(srcvarname)
+            #except Exception, err:
+                #self.raise_exception(
+                    #"cannot retrieve value of source attribute '%s'" %
+                    #srcname, type(err))
+            #try:
+                #destcomp.set(destvarname, srcval, srcname=srcname)
+            #except Exception, exc:
+                #msg = "cannot set '%s' from '%s': %s" % (vname, srcname, exc)
+                #self.raise_exception(msg, type(exc))
+        
+    def make_inputs_valid(self, compname, inputs):
+        """ Make inputs for child component valid. """
+        # Trace inputs back to source outputs.
+        # Add those components to evaluation list.
+        trace_inputs = [(compname, inputs)]
+        compnames = set()
+        need_valid = set()
+        while trace_inputs:
+            dest, dst_inputs = trace_inputs.pop()
+            for vname in dst_inputs:
+                destpath = '.'.join([dest, vname])
+                srcpath,dpath = self._var_graph.in_edges(nbunch=destpath)[0] # should be only one link to an input
+                srcparts = srcpath.split('.')
+                if len(srcparts) > 1:
+                    srcname = srcparts[0]
+                    if srcname not in compnames:
+                        compnames.add(srcname)
+                        src = getattr(self, srcname)
+                        req_inputs = src.list_inputs(valid=False)
+                        if req_inputs:
+                            trace_inputs.append((srcname, req_inputs))
                 else:
-                    srccomp.update_outputs([srcvarname])
+                    need_valid.add(srcpath)
 
-            try:
-                srcval = srccomp.get_wrapped_attr(srcvarname)
-            except Exception, err:
-                self.raise_exception(
-                    "cannot retrieve value of source attribute '%s'" %
-                    srcname, type(err))
-            try:
-                destcomp.set(destvarname, srcval, srcname=srcname)
-            except Exception, exc:
-                msg = "cannot set '%s' from '%s': %s" % (vname, srcname, exc)
-                self.raise_exception(msg, type(exc))
+        # If any of our inputs are needed and not valid, call parent.
+        if need_valid:
+            self.parent.make_inputs_valid(self, need_valid)
+            self._update_inputs_from_boundary(need_valid)
+
+        # Evaluate selected components.
+        self.workflow.run(compnames)
         
-        return updated
+        comp = getattr(self, compname)
+        for inp in inputs:
+            comp.set_valid(inp, True)
 
-    def update_outputs(self, outnames):
-        """Execute any necessary internal or predecessor components in order
-        to make the specified output variables valid.
-        """
-        self.update_inputs(outnames)
+    def _update_inputs_from_boundary(self, inputs):
+        """ Transfer boundary inputs to internal destinations. """
+        for src in inputs:
+            for src_path, dst_path in self._var_graph.edges(nbunch=src):
+                if get_enabled(src):
+                    if get_valid(src):
+                        if VERBOSE:
+                            print 'Transfer %s to %s' \
+                                  % ('.'.join([self.name,src]), dst_path)
+                        self.set(dst_path, getattr(self, src))
+                else: # disabled
+                    if VERBOSE:
+                        print 'Disabling %s' % dst_path
+                    dstcompname, dstvarname = dst_path.split('.', 1)
+                    dst_comp = getattr(self, dstcompname)
+                    dst_comp.set_enabled(dstvarname, False)
 
     def get_valids(self, names):
         """Returns a list of boolean values indicating whether the named

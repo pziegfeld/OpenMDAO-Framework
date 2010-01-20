@@ -31,7 +31,7 @@ class Sleepy(Component):
     out1 = Str(io_direction='out')
     
     def __init__(self, delay=0):
-        Component.__init__(self)
+        super(Sleepy,self).__init__()
         self.delay = delay
 
     def execute(self):
@@ -45,7 +45,7 @@ class Integrator(Sleepy):
     integral = Str(io_direction='out')
     
     def __init__(self, delay=0):
-        Sleepy.__init__(self, delay=delay)
+        super(Integrator,self).__init__(delay=delay)
 
     def execute(self):
         """ Delay, then set outputs to sum/integral of inputs. """
@@ -62,8 +62,8 @@ class Compressor(Component):
     outflow = Int(io_direction='out')
     extrapolated = Bool(io_direction='out')
     
-    def __init__(self, name, parent, delay=0):
-        Component.__init__(self, name, parent)
+    def __init__(self, delay=0):
+        super(Compressor,self).__init__()
         self.delay = delay
 
     def execute(self):
@@ -84,7 +84,7 @@ class MapGenerator(Component):
     mymap = Int(1, io_direction='out')
     
     def __init__(self, delay=0):
-        Component.__init__(self)
+        super(MapGenerator, self).__init__()
         self.delay = delay
 
     def execute(self):
@@ -92,6 +92,17 @@ class MapGenerator(Component):
         logging.debug('             %s running...' % self.name)
         time.sleep(self.delay)
         self.mymap += 1
+
+
+def resolve(obj, ref):
+    """ Return object referenced by `ref`. """
+    if isinstance(ref, basestring):
+        names = ref.split('.')
+        for name in names[:-1]:
+            obj = getattr(obj, name)
+        ref = getattr(obj, names[-1])
+    return (ref, 'valid' if obj.get_valid(names[-1]) else 'invalid')
+
 
 def display(comp, prefix='', suffix=''):
     """ Display state. """
@@ -127,11 +138,12 @@ def display(comp, prefix='', suffix=''):
         
     for name in sorted(outputs.keys()):
         print prefix, name, outputs[name]
-            
+
+
 class TestRig(Assembly):
 
     def __init__(self, state_table, data_table):
-        Assembly.__init__(self)
+        super(TestRig, self).__init__()
         self.workflow.record_states = True
         self.state_table = state_table
         self.data_table = data_table
@@ -167,20 +179,10 @@ class TestRig(Assembly):
 
         for i, data in enumerate(self.data_table):
             vref, expected = data
-            actual = '%s' % self.resolve(vref)
+            actual = str(resolve(self, vref)).replace("'","")
             if actual != expected:
                 print 'ERROR: [%d] %s %s vs. %s' \
                       % (i, vref, actual, expected)
-
-    def resolve(self, ref):
-        """ Return object referenced by `ref`. """
-        if isinstance(ref, basestring):
-            names = ref.split('.')
-            obj = self
-            for name in names[:-1]:
-                obj = getattr(obj, name)
-            ref = getattr(obj, names[-1])
-        return ref
 
     def step(self, states):
         """ Perform one step of evaluation and verify dispatch table. """
@@ -328,7 +330,7 @@ class TestCase(unittest.TestCase):
         rig.run('New input on A')
 
         # Set new input on B.
-        rig.B.in2 = 'b2'
+        rig.B.in2 = 'b3'
         rig.state_table = [
             ['B'],
             ['C'],
@@ -374,13 +376,14 @@ class TestCase(unittest.TestCase):
             ['A'],
         ]
         rig.data_table = [
-            ['B.out1', '(a1a5b3, valid-linked)'],
+            #['B.out1', '(a1a5b3, valid-linked)'],
+            ['B.out1', '(a1a5b3, valid)'],
         ]
         rig.run('Specify B.run, auto-run predecessor', rig.B)
 
         # Remove 'B', causing disconnections.
         rig.remove_container('B')
-        rig.invalidate_deps(['A.in1'])
+        rig.invalidate_deps(['A.out1'])
         rig.A.in2 = 'a6'
         rig.C.in2 = 'c4'
         rig.state_table = [

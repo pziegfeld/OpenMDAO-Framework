@@ -118,20 +118,19 @@ class Component (Container):
         if self.parent is None: # if parent is None, we're not part of an Assembly
                                 # so Variable validity doesn't apply. Just execute.
             self._call_execute = True
-            for name in self.list_inputs():
+            for name in self.list_inputs(valid=False):
                 self.set_valid(name, True)
         else:
             invalid_ins = self.list_inputs(valid=False)
-            if len(invalid_ins) > 0:
+            if invalid_ins:
                 self._call_execute = True
-                name = self.name
-                self.parent.update_inputs(['.'.join([name, n]) for n in invalid_ins])
-                for name in invalid_ins:
-                    self.set_valid(name, True)
+                self.parent.make_inputs_valid(self.name, invalid_ins)
+                #for name in invalid_ins:
+                    #self.set_valid(name, True)
                                 
     def execute (self):
         """Perform calculations or other actions, assuming that inputs 
-        have already been set. This must be overridden in derived classes.
+        have already been set. This must be overridden.
         """
         raise NotImplementedError('%s.execute' % self.get_pathname())
     
@@ -140,7 +139,7 @@ class Component (Container):
         Overrides of this function must call this version.
         """
         # make our output Variables valid again
-        for name in self.list_outputs():
+        for name in self.list_outputs(valid=False):
             self.set_valid(name, True)
         self._call_execute = False
         self.state = VALID
@@ -693,11 +692,16 @@ class Component (Container):
             
         return valid_outs    
 
-    def update_outputs(self, outnames):
-        """Do what is necessary to make the specified output Variables valid.
-        For a simple Component, this will result in a run().
-        """
-        self.run()
+    #def update_outputs(self, outnames):
+        #"""Do what is necessary to make the specified output Variables valid.
+        #For a simple Component, this will result in a run().
+        #"""
+        #invalid_inputs = ['.'.join([self.name,name]) for name in self.list_inputs(valid=False)]
+        #if invalid_inputs:
+            #self.parent.make_valid(self.name, invalid_inputs)
+        #self.run()
+        
+        
         
 # TODO: uncomment require_gradients and require_hessians after they're better thought out
     

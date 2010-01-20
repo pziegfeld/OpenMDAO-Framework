@@ -44,10 +44,7 @@ class AsyncWorkflow(Workflow):
         self.record_states = True
         self.dispatch_table = []
         
-        self._sources = {}  # mapping of source vars to a list of dest vars
-        self._dests = {} # mapping of dest vars to their linked source var
-
-        self._work_info = {}         # Maps component to required outputs.
+        self._compnames = {}         # iterator of names of components to run.
         self._stop = False           # If True, stop evaluation.
         self._active = []            # List of components currently active.
         self._ready_q = []           # List of components ready to run.
@@ -67,14 +64,14 @@ class AsyncWorkflow(Workflow):
         """Remove a component from this Workflow and any of its children."""
         self._comp_graph.remove_node(node)
 
-    def run(self, work_info=None):
+    def run(self, compnames=None):
         """
-        Execute the given components. `work_info` is a dictionary
+        Execute the given components. `compnames` is a dictionary
         mapping components to required outputs (or None for all).
         """
-        if work_info is None:
-            work_info = self._comp_graph
-        self._setup(work_info)
+        if compnames is None:
+            compnames = self._comp_graph.nodes()
+        self._setup(compnames)
         if not self._ready_q:
             return
         self.resume()
@@ -113,10 +110,6 @@ class AsyncWorkflow(Workflow):
                                  (str(strcon), 
                                   '.'.join([srccompname,srcvarname]), 
                                   '.'.join([destcompname,destvarname]))) 
-        if srcpath not in self._sources:
-            self._sources[srcpath] = []
-        self._sources[srcpath].append(destpath)
-        self._dests[destpath] = srcpath
         
     def disconnect(self, srcpath, destpath):
         """Decrement the ref count for the edge in the dependency graph 
@@ -130,11 +123,6 @@ class AsyncWorkflow(Workflow):
             self._comp_graph.remove_edge(comp1name, comp2name)
         else:
             self._comp_graph[comp1name][comp2name]['refcount'] = refcount
-            
-        self._sources[srcpath].remove(destpath)
-        if len(self._sources[srcpath]) == 0:
-            del self._sources[srcpath]
-        del self._dests[destpath]
 
 #=================================================================================
 
@@ -142,10 +130,6 @@ class AsyncWorkflow(Workflow):
     def is_active(self):
         """ Return True if the workflow is currently active. """
         return self._active or self._ready_q
-
-    #def cleanup(self):
-        #""" Cleanup resources (worker threads). """
-        #self._pool.cleanup()
 
     def resume(self):
         """ Resume execution. """
@@ -166,7 +150,7 @@ class AsyncWorkflow(Workflow):
         # At this point all runnable components have been run.
         # Check for failures.
         failures = 0
-        for compname in self._work_info:
+        for compname in self._compnames:
             comp = getattr(self.scope, compname)
             if not comp.is_valid() and comp.is_ready():
                 print 'Component', comp.name, 'not valid'
@@ -175,14 +159,14 @@ class AsyncWorkflow(Workflow):
         if failures:
             raise RuntimeError('%d components failed' % failures)
 
-    def step(self, work_info=None):
+    def step(self, compnames=None):
         """
         If any workers are 'active', process the next one that finishes. If
-        `work_info` is specified, then start a new evaluation.  `work_info` is
-        a dictionary mapping components to required outputs (or None for all).
+        `compnames` is specified, then start a new evaluation.  `compnames` is
+        an iterator of names of components to run (or None for all).
         """
-        if work_info:
-            self._setup(work_info)
+        if compnames:
+            self._setup(compnames)
 
         self._start()
         if self.is_active:
@@ -193,7 +177,7 @@ class AsyncWorkflow(Workflow):
                 # Note that multiple workers may think that they are
                 # the one that made a dependent component ready.
                 for dependent in ready:
-                    if dependent.name in self._work_info:
+                    if dependent.name in self._compnames:
                         if dependent not in self._ready_q:
                             dependent.set_ready()
                             self._ready_q.append(dependent)
@@ -206,9 +190,9 @@ class AsyncWorkflow(Workflow):
         """ Stop the evaluation (eventually). """
         self._stop = True
 
-    def _setup(self, work_info):
+    def _setup(self, compnames):
         """ Setup to begin evaluation. """
-        self._work_info = work_info
+        self._compnames = compnames
         self._active = []
         self.dispatch_table = []
 
@@ -220,7 +204,8 @@ class AsyncWorkflow(Workflow):
                 break
 
         # Get components that are ready-to-run.
-        self._ready_q = [getattr(self.scope, cname) for cname in self._work_info if getattr(self.scope, cname).is_ready()]
+        self._ready_q = [comp for comp in [getattr(self.scope, cname) for cname in self._compnames] 
+                             if comp.is_ready()]
         
     def _start(self):
         """ Start all runnable components (unless sequential). """
@@ -241,7 +226,6 @@ class AsyncWorkflow(Workflow):
         """
         Get component, run it, update dependent inputs, and queue results.
         """
-        successors = self.scope.get_var_graph().succ
         while True:
             comp = request_q.get()
             if comp is None:
@@ -257,26 +241,29 @@ class AsyncWorkflow(Workflow):
                 msg = traceback.format_exc()
             else:
                 # Update dependent components.
-                outdata = comp.get_outgoing_data()
-                updated = set()
-                for name, data in outdata.items():
-                    val, destlist = data
-                    srcpath = '.'.join((comp.name,name))
-                    for dest in destlist:
-                        tup = dest.split('.', 1)
-                        if len(tup) == 2:
-                            destcomp = getattr(self.scope, tup[0])
-                            destcomp.set(tup[1], val, 
-                                         srcname=srcpath)
-                            updated.add(destcomp)
-                        else: # boundary output
-                            self.scope.set(dest, val, 
-                                           srcname=srcpath)
-                            if self._verbose: 
-                                print 'Transfer %s.%s to %s' % (comp.name, name, dest)
-
-                # Check if updated components are now ready.
-                ready = [ucomp for ucomp in updated if ucomp.is_ready()]
+                try:
+                    outdata = comp.get_outgoing_data()
+                    updated = set()
+                    for name, data in outdata.items():
+                        val, destlist = data
+                        srcpath = '.'.join((comp.name,name))
+                        for dest in destlist:
+                            tup = dest.split('.', 1)
+                            if len(tup) == 2:
+                                destcomp = getattr(self.scope, tup[0])
+                                destcomp.set(tup[1], val, 
+                                             srcname=srcpath)
+                                updated.add(destcomp)
+                            else: # boundary output
+                                self.scope.set(dest, val, 
+                                               srcname=srcpath)
+                                if self._verbose: 
+                                    print 'Transfer %s.%s to %s' % (comp.name, name, dest)
+    
+                    # Check if updated components are now ready.
+                    ready = [ucomp for ucomp in updated if ucomp.is_ready()]
+                except Exception:
+                    msg = traceback.format_exc()
 
             request_q.task_done()
             self._done_q.put((request_q, comp.name, msg, ready))

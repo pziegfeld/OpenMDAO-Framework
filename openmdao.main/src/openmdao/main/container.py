@@ -429,13 +429,17 @@ class Container(HasTraits):
     def is_ready(self):
         """ Return True if this component is ready (and needs) to run. """
         if self.state == READY:
+            print '%s is ready' % self.name
             return True
         elif self.state == VALID:
+            print '%s is not ready (already valid)' % self.name
             return False
 
         for name in self.keys(io_direction='in'):
             if not self.get_enabled(name) or not self.get_valid(name):
+                print '%s is not ready (%s is disabled or invalid)' % (self.name,name)
                 return False  # Not ready -- not all inputs valid.
+        print '%s is ready' % self.name
         return True
 
     def set_ready(self):
@@ -859,9 +863,6 @@ class Container(HasTraits):
         if len(self.linked_outputs[srcname]) == 0:
             del self.linked_outputs[srcname]
     
-    def unlink_output(self, srcname, destpath):
-        self.linked_outputs[srcname].remove(destpath)
-    
     def set_source(self, name, source):
         """Mark the named io trait as a destination by registering a source
         for it, which will prevent it from being set directly or connected 
@@ -878,7 +879,8 @@ class Container(HasTraits):
         allow the destination to later be connected to a different source or
         to have its value directly set.
         """
-        del self._sources[destination]    
+        del self._sources[destination]
+        self.set_valid(destination, True) # disconnected inputs are always valid
         
     def _check_trait_settable(self, name, srcname=None, force=False):
         if force:
