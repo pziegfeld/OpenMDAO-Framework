@@ -127,7 +127,8 @@ class Component (Container):
                 self.parent.make_inputs_valid(self.name, invalid_ins)
                 #for name in invalid_ins:
                     #self.set_valid(name, True)
-                                
+            if self.list_outputs(valid=False):
+                self._call_execute = True
     def execute (self):
         """Perform calculations or other actions, assuming that inputs 
         have already been set. This must be overridden.
@@ -676,32 +677,25 @@ class Component (Container):
         """Stop this component."""
         self._stop = True
 
-    def invalidate_deps(self, vars, notify_parent=False):
-        """Invalidate all of our valid outputs."""
+    def invalidate_deps(self, varnames, notify_parent=False):
+        """Invalidate all of our valid outputs.
+        
+        Returns the names of all newly invalidated outputs.
+        """
         self.state = INVALID
         valid_outs = self.list_outputs(valid=True)
         
-        for var in vars:
+        for var in varnames:
             self.set_valid(var, False)
             
-        if notify_parent and self.parent and len(valid_outs) > 0:
+        if notify_parent and self.parent and valid_outs:
             self.parent.invalidate_deps(['.'.join([self.name,n]) for n in valid_outs], 
                                         notify_parent)
         for out in valid_outs:
             self._valid_dict[out] = False
             
-        return valid_outs    
+        return valid_outs
 
-    #def update_outputs(self, outnames):
-        #"""Do what is necessary to make the specified output Variables valid.
-        #For a simple Component, this will result in a run().
-        #"""
-        #invalid_inputs = ['.'.join([self.name,name]) for name in self.list_inputs(valid=False)]
-        #if invalid_inputs:
-            #self.parent.make_valid(self.name, invalid_inputs)
-        #self.run()
-        
-        
         
 # TODO: uncomment require_gradients and require_hessians after they're better thought out
     

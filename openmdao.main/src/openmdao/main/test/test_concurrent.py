@@ -11,7 +11,7 @@ import traceback
 from enthought.traits.api import Int, Str, Bool
 from openmdao.main.api import Container, Component, Assembly
 from openmdao.main.exceptions import CircularDependencyError
-from openmdao.main.container import state_strings
+from openmdao.main.container import state_strings, VALID
 
 import unittest
 import logging
@@ -181,8 +181,8 @@ class TestRig(Assembly):
             vref, expected = data
             actual = str(resolve(self, vref)).replace("'","")
             if actual != expected:
-                print 'ERROR: [%d] %s %s vs. %s' \
-                      % (i, vref, actual, expected)
+                raise RuntimeError('ERROR: [%d] %s %s vs. %s' % 
+                                      (i, vref, actual, expected))
 
     def step(self, states):
         """ Perform one step of evaluation and verify dispatch table. """
@@ -192,92 +192,94 @@ class TestRig(Assembly):
     def verify_dispatch_table(self, expected_table):
         """ Verify that dispatch table has expected contents. """
         if len(self.workflow.dispatch_table) != len(expected_table):
-            print 'ERROR: %d states vs. expected %d' \
-                  % (len(self.workflow.dispatch_table), len(expected_table))
+            raise RuntimeError('ERROR: %d states vs. expected %d' %
+                    (len(self.workflow.dispatch_table), len(expected_table)))
         for i, state in enumerate(expected_table):
             if i >= len(self.workflow.dispatch_table):
                 break
             actual = sorted(self.workflow.dispatch_table[i])
             expected = sorted(state)
             if actual != expected:
-                print 'ERROR: [%d] %s vs. %s' % (i, actual, expected)
+                raise RuntimeError('ERROR: [%d] %s vs. %s' % (i, actual, expected))
 
 
 class TestCase(unittest.TestCase):
-    #def test_basic(self):
-        #"""\
-              #Basic functionality:
-                   #B ---\\
-                 #/       \\
-               #A - C \\    F
-                 #\     E /
-                   #D /
-              #"""
-        #state_table = [
-            #['A'],
-            #['B', 'C', 'D'],
-            #['E'],
-            #['F']
-        #]
-        #data_table = [
-            #['F.out1', '(a1a2b2a1a2c2a1a2d2, valid)'],
-        #]
-        #rig = TestRig(state_table, data_table)
-        #rig.name = 'TestRig'
+    def test_basic(self):
+        """\
+              Basic functionality:
+                   B ---\\
+                 /       \\
+               A - C \\    F
+                 \     E /
+                   D /
+              """
+        state_table = [
+            ['A'],
+            ['B', 'C', 'D'],
+            ['E'],
+            ['F']
+        ]
+        data_table = [
+            ['F.out1', '(a1a2b2a1a2c2a1a2d2, valid)'],
+        ]
+        rig = TestRig(state_table, data_table)
+        rig.name = 'TestRig'
 
-        #A = Sleepy('A', rig)
-        ##A.set('in1', 'a1')
-        ##A.set('in2', 'a2')
+        rig.add_container('A', Sleepy())
+        rig.A.in1 = 'a1'
+        rig.A.in2 = 'a2'
 
-        #B = Sleepy('B', rig, delay=0.1)
-        ##B.set('in2', 'b2')
+        rig.add_container('B', Sleepy(delay=0.1))
+        rig.B.in2 = 'b2'
 
-        #C = Sleepy('C', rig, delay=0.2)
-        ##C.set('in2', 'c2')
+        rig.add_container('C', Sleepy(delay=0.2))
+        rig.C.in2 = 'c2'
+        
+        rig.add_container('D', Sleepy(delay=0.3))
+        rig.D.in2 = 'd2'
 
-        #D = Sleepy('D', rig, delay=0.3)
-        ##D.set('in2', 'd2')
+        rig.add_container('E', Sleepy())
+        rig.add_container('F', Sleepy())
 
-        #E = Sleepy('E', rig)
+        rig.connect('A.out1', 'B.in1')
+        rig.connect('A.out1', 'C.in1')
+        rig.connect('A.out1', 'D.in1')
+        rig.connect('B.out1', 'F.in1')
+        rig.connect('C.out1', 'E.in1')
+        rig.connect('D.out1', 'E.in2')
+        rig.connect('E.out1', 'F.in2')
 
-        #F = Sleepy('F', rig)
+        rig.run()
 
-        #rig.connect('A.out1', 'B.in1')
-        #rig.connect('A.out1', 'C.in1')
-        #rig.connect('A.out1', 'D.in1')
-        #rig.connect('B.out1', 'F.in1')
-        #rig.connect('C.out1', 'E.in1')
-        #rig.connect('D.out1', 'E.in2')
-        #rig.connect('E.out1', 'F.in2')
+        # Re-run with nothing to do.
+        rig.state_table = []
+        rig.run('Nothing to do.')
 
-        #rig.run()
-
-        ## Re-run with nothing to do.
-        #rig.state_table = []
-        #rig.run('Nothing to do.')
-
-        ## Step through from beginning.
+        # Step through from beginning.
         #rig.invalidate()
-        #rig.step([['A']])
-        #rig.step([['A'], ['B', 'C', 'D']])
-        #rig.step([['A'], ['B', 'C', 'D']])
-        #rig.step([['A'], ['B', 'C', 'D']])
-        #rig.step([['A'], ['B', 'C', 'D'], ['E']])
-        #rig.step([['A'], ['B', 'C', 'D'], ['E'], ['F']])
-        #rig.step([])
-        #if rig.state != VALID:
-            #print "ERROR: expected rig 'valid', actual '%s'" % rig.state
+        rig.A.in1 = 'a0'
+        rig.A.in1 = 'a1' # set to a different value then back to invalidate dependents
+        rig.step([['A']])
+        rig.step([['A'], ['B', 'C', 'D']])
+        rig.step([['A'], ['B', 'C', 'D']])
+        rig.step([['A'], ['B', 'C', 'D']])
+        rig.step([['A'], ['B', 'C', 'D'], ['E']])
+        rig.step([['A'], ['B', 'C', 'D'], ['E'], ['F']])
+        rig.step([])
+        if rig.state != VALID:
+            print "ERROR: expected rig 'valid', actual '%s'" % rig.state
 
-        ## Re-run sequentially.
-        #rig.invalidate()
-        #rig.workflow.sequential = True
-        #rig.state_table = [
-            #['A'],
-            #['B'], ['C'], ['D'],
-            #['E'],
-            #['F']
-        #]
-        #rig.run('Sequential')
+        # Re-run sequentially.
+        rig.A.in1 = 'a0'
+        rig.A.in1 = 'a1' # set to a different value then back to invalidate dependents
+        rig.workflow.sequential = True
+        rig.state_table = [
+            ['A'],
+            ['B'], ['C'], ['D'],
+            ['E'],
+            ['F']
+        ]
+        rig.run('Sequential')
 
 
     def test_sequence(self):
@@ -311,7 +313,6 @@ class TestCase(unittest.TestCase):
 
         # Normal run.
         rig.run()
-        display(rig, suffix='after first run')
 
         # Re-run with nothing to do.
         rig.state_table = []
@@ -1255,5 +1256,3 @@ class TestCase(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-#    VERBOSE = True
-

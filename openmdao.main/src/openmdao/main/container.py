@@ -188,7 +188,7 @@ class Container(HasTraits):
         self._enabled = True
         self._sources = {}  # for checking that destination traits cannot be 
                             # set by other objects
-        self.linked_outputs = {} # outputs that are being used by other components
+        self._output_links = {} # outputs that are being used by other components
                                  # -has the form: { <outputname>: [<destpath1>, destpath2>, ...] }
         # for keeping track of dynamically added traits for serialization
         self._added_traits = {}  
@@ -386,11 +386,11 @@ class Container(HasTraits):
                     (name, self._sources[name]), TraitError)
             else:
                 self._call_execute = True
-                # invalidate all of our outputs
-                self.invalidate_deps([name], notify_parent=True)
+                # invalidate our outputs
+                self.invalidate()
                 self.set_valid(name, True) # input is valid when set
-        elif self.get_valid(name):  # if var is output and not already invalid
-            self.invalidate_deps([name], notify_parent=True)
+        #elif self.get_valid(name):  # if var is output and not already invalid
+            #self.invalidate_deps([name], notify_parent=True)
     
     # error reporting stuff
     def _get_log_level(self):
@@ -429,17 +429,13 @@ class Container(HasTraits):
     def is_ready(self):
         """ Return True if this component is ready (and needs) to run. """
         if self.state == READY:
-            print '%s is ready' % self.name
             return True
         elif self.state == VALID:
-            print '%s is not ready (already valid)' % self.name
             return False
 
-        for name in self.keys(io_direction='in'):
-            if not self.get_enabled(name) or not self.get_valid(name):
-                print '%s is not ready (%s is disabled or invalid)' % (self.name,name)
+        for name in self.list_inputs():
+            if not self.get_valid(name) or not self.get_enabled(name):
                 return False  # Not ready -- not all inputs valid.
-        print '%s is ready' % self.name
         return True
 
     def set_ready(self):
@@ -456,7 +452,7 @@ class Container(HasTraits):
             return self.state == VALID
         else:
             for name in required_outputs:
-                if name in self.linked_outputs and not get_valid(name):
+                if name in self._output_links and not get_valid(name):
                     return False
             return True
         
@@ -503,10 +499,12 @@ class Container(HasTraits):
         return [self.get_valid(v) for v in names]
 
     def set_valid(self, name, valid):
-        """Mark the io trait with the given name as valid or invalid."""
-        if name in self._valid_dict:
-            self._valid_dict[name] = valid
-        else:
+        """Mark the io trait with the given name as valid or invalid.
+        
+        Return True if the value was changed due to the set, False if not.
+        """
+        v = self._valid_dict.get(name, None)
+        if v is None:
             trait = self.trait(name)
             if trait and trait.io_direction:
                 self._valid_dict[name] = valid
@@ -514,12 +512,34 @@ class Container(HasTraits):
                 self.raise_exception(
                     "cannot set valid flag of '%s' because "
                     "it's not an io trait." % name, RuntimeError)
+        else:
+            if v is valid:
+                return False
+            else:
+                self._valid_dict[name] = valid
+        if valid is False and self.parent:
+            trait = self.trait(name)
+            if trait and trait.io_direction == 'in':
+                self.invalidate()
+        return True
+
+    def invalidate(self):
+        """ Invalidate all linked outputs and inputs connected to them. """
+        if self.state != INVALID:
+            self.state = INVALID
+            invalidated = self.list_outputs(valid=True)
+            for name in invalidated:
+                self.set_valid(name, False)
+            if self.parent and invalidated:
+                self.parent.invalidate_dependent_inputs(self.name, invalidated)
 
     def set_enabled(self, name, enabled):
-        """Mark the io trait with the given name as valid or invalid."""
-        if name in self._enabled_dict:
-            self._enabled_dict[name] = enabled
-        else:
+        """Mark the io trait with the given name as enabled or not.
+        
+        Returns True if the value was changed due to the set, False if not.
+        """
+        en = self._enabled_dict.get(name, None)
+        if en is None:
             trait = self.trait(name)
             if trait and trait.io_direction:
                 self._enabled_dict[name] = enabled
@@ -527,11 +547,17 @@ class Container(HasTraits):
                 self.raise_exception(
                     "cannot set enabled flag of '%s' because "
                     "it's not an io trait." % name, RuntimeError)
-        if enabled == False:
+        else:
+            if en is enabled:
+                return False  # value was not changed
+            else:
+                self._enabled_dict[name] = enabled
+        if enabled is False:
             self._enabled = False
         else:
             if all(self._enabled_dict.values()):
                 self._enabled = True
+        return True   # value was changed
 
     def check_config (self):
         """Verify that the configuration of this component is correct. This
@@ -673,16 +699,15 @@ class Container(HasTraits):
             return [n for n in self._input_names if fval(n)==valid]
         
     def get_outgoing_data(self):
-        """Return a dict containing output names, values and names of any
-        variables that are linked to those outputs.  The form is:
-        { <outname>: (value, list_of_linked_vars), <outname2>: (value2, ...) ... }
+        """Return a dict containing output names and their values.  The form is:
+        { <outname>: value, <outname2>: value2 ... }
         
         Only valid, enabled outputs will be added to the returned dict.
         """
         outdata = {}
-        for name, lst in self.linked_outputs.items():
+        for name in self._output_links:
             if self.get_valid(name) and self.get_enabled(name):
-                outdata[name] = (getattr(self, name), lst)
+                outdata[name] = getattr(self, name)
         return outdata
     
     def list_outputs(self, valid=None):
@@ -853,15 +878,16 @@ class Container(HasTraits):
             else:
                 return obj._array_get('.'.join(tup[1:]), index)
     
-    def link_output(self, srcname, destpath):
-        if srcname not in self.linked_outputs:
-            self.linked_outputs[srcname] = []
-        self.linked_outputs[srcname].append(destpath)
+    def link_output(self, srcname):
+        if srcname not in self._output_links:
+            self._output_links[srcname] = 1
+        else:
+            self._output_links[srcname] += 1
         
-    def unlink_output(self, srcname, destpath):
-        self.linked_outputs[srcname].remove(destpath)
-        if len(self.linked_outputs[srcname]) == 0:
-            del self.linked_outputs[srcname]
+    def unlink_output(self, srcname):
+        self._output_links[srcname] -= 1
+        if self._output_links[srcname] == 0:
+            del self._output_links[srcname]
     
     def set_source(self, name, source):
         """Mark the named io trait as a destination by registering a source
@@ -873,6 +899,7 @@ class Container(HasTraits):
                 "'%s' is already connected to source '%s'" % 
                 (name, self._sources[name]), TraitError)
         self._sources[name] = source
+        self.invalidate()
             
     def remove_source(self, destination):
         """Remove the source from the given destination io trait. This will
@@ -881,6 +908,8 @@ class Container(HasTraits):
         """
         del self._sources[destination]
         self.set_valid(destination, True) # disconnected inputs are always valid
+        if not self.list_outputs(valid=False): # if no invalid outputs, we're VALID
+            self.state = VALID
         
     def _check_trait_settable(self, name, srcname=None, force=False):
         if force:

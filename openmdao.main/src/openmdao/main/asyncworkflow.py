@@ -60,6 +60,9 @@ class AsyncWorkflow(Workflow):
             raise TypeError('%s is not a Component' % 
                             '.'.join((self.scope.get_pathname(),node)))
         
+    def nodes(self):
+        return self._comp_graph.nodes()
+        
     def remove_node(self, node):
         """Remove a component from this Workflow and any of its children."""
         self._comp_graph.remove_node(node)
@@ -149,15 +152,13 @@ class AsyncWorkflow(Workflow):
 
         # At this point all runnable components have been run.
         # Check for failures.
-        failures = 0
+        failures = []
         for compname in self._compnames:
             comp = getattr(self.scope, compname)
             if not comp.is_valid() and comp.is_ready():
-                print 'Component', comp.name, 'not valid'
-                comp.display()
-                failures += 1
+                failures.append(compname)
         if failures:
-            raise RuntimeError('%d components failed' % failures)
+            raise RuntimeError('the following components failed: %s' % failures)
 
     def step(self, compnames=None):
         """
@@ -244,10 +245,9 @@ class AsyncWorkflow(Workflow):
                 try:
                     outdata = comp.get_outgoing_data()
                     updated = set()
-                    for name, data in outdata.items():
-                        val, destlist = data
-                        srcpath = '.'.join((comp.name,name))
-                        for dest in destlist:
+                    for name, val in outdata.items():
+                        srcpath = '.'.join((comp.name, name))
+                        for dest in self.scope._var_graph.succ[srcpath]:
                             tup = dest.split('.', 1)
                             if len(tup) == 2:
                                 destcomp = getattr(self.scope, tup[0])

@@ -17,30 +17,30 @@ class Workflow(object):
     def __init__(self, scope=None):
         """ Create an empty flow. """
         self.scope = scope
-        self.nodes = []
+        self._nodes = []
         self._iterator = None
         self._stop = False
 
     def add_node(self, node):
         """ Add a new node to the end of the flow. """
         if isinstance(node, Component):
-            self.nodes.append(node)
+            self._nodes.append(node)
         else:
             raise TypeError('%s is not a Component' % node.get_pathname())
         
     def remove_node(self, node):
         """Remove a component from this Workflow and any of its children."""
-        nodes = [x for x in self.nodes if x is not node]
+        nodes = [x for x in self._nodes if x is not node]
         for comp in nodes:
             if isinstance(comp, Workflow):
                 comp.remove_node(node)
-        self.nodes = nodes
+        self._nodes = nodes
 
     def run(self):
         """ Run through the nodes in the workflow list. """
         #if __debug__: self._logger.debug('execute %s' % self.get_pathname())
         self._stop = False
-        self._iterator = self.nodes_iter()
+        self._iterator = self._nodes_iter()
         for node in self._iterator:
             node.run()
             if self._stop:
@@ -49,7 +49,7 @@ class Workflow(object):
     
     def nodes_iter(self):
         """Iterate through the nodes."""
-        for node in self.nodes:
+        for node in self._nodes:
             yield node
     
     def step(self):
@@ -67,7 +67,7 @@ class Workflow(object):
 
     def steppable(self):
         """ Return True if it makes sense to 'step' this component. """
-        return len(self.nodes) > 1
+        return len(self._nodes) > 1
 
     def stop(self):
         """
