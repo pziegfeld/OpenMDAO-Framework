@@ -25,7 +25,7 @@ need to function properly as an OpenMDAO component.
         b = Float(0.0, io_direction='in')
         c = Float(0.0, io_direction='out')
     
-        def execute(self):
+        def execute(self, required_outputs=None):
              self.c = self.a + self.b
 
 

@@ -111,7 +111,7 @@ class Source(Assembly):
         self.pop_dir()
         self.external_files.append(FileMetadata(path=path))
     
-    def execute(self):
+    def execute(self, required_outputs=None):
         """ Write test data to files. """
         if self.write_files:
             cwd = os.getcwd()
@@ -158,7 +158,7 @@ class Sink(Component):
         global SINK_INIT
         SINK_INIT = True
 
-    def execute(self):
+    def execute(self, required_outputs=None):
         """ Read test data from files. """
         inp = self.text_file.open()
         self.text_data = inp.read()
@@ -197,7 +197,7 @@ class Oddball(Assembly):
         self.peer_class = Source  # Check that class in __main__ is handled.
         self.scratch_tuple = (1, 2)
 
-    def execute(self):
+    def execute(self, required_outputs=None):
         """ Call stuff. Empty sockets are clumsy. """
         if self.thing_to_call:
             self.debug('thing_to_call returned %s', self.thing_to_call())

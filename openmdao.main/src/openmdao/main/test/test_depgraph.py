@@ -7,6 +7,19 @@ from enthought.traits.api import Int, TraitError
 
 from openmdao.main.api import Assembly, Component, set_as_top
 
+def dump_stuff(obj, **kwargs):
+    valid = kwargs.get('valid')
+    io = kwargs.get('io_direction')
+    if io == 'in' or io == 'both':
+        for name in obj.list_inputs(valid=valid):
+            print '.'.join([obj.get_pathname(),name])
+    if io == 'out' or io == 'both':
+        for name in obj.list_outputs(valid=valid):
+            print '.'.join([obj.get_pathname(),name])
+    if kwargs.get('recurse'):
+        for val in obj.values():
+            if isinstance(val, Component):
+                dump_stuff(val, **kwargs)
         
 class Simple(Component):
     a = Int(io_direction='in')
@@ -22,7 +35,7 @@ class Simple(Component):
         self.d = -1
         self.run_count = 0
 
-    def execute(self):
+    def execute(self, required_outputs=None):
         self.run_count += 1
         self.c = self.a + self.b
         self.d = self.a - self.b
@@ -56,6 +69,7 @@ subvars = subins+subouts
 class DepGraphTestCase(unittest.TestCase):
 
     def setUp(self):
+        print '***** setup'
         top = set_as_top(Assembly())
         self.top = top
         top.add_container('sub', Assembly())
@@ -89,14 +103,17 @@ class DepGraphTestCase(unittest.TestCase):
         top.connect('comp7.c', 'sub.a3')
         top.connect('sub.c4', 'comp8.a')
         top.connect('sub.d3', 'comp8.b')
+        print '***** end setup'
 
     def test_simple(self):
+        print '***** test_simple'
         top = set_as_top(Assembly())
         top.add_container('comp1', Simple())
         vars = ['a','b','c','d']
         self.assertEqual(top.comp1.run_count, 0)
         valids = [top.comp1.get_valid(v) for v in vars]
-        self.assertEqual(valids, [False, False, False, False])
+        # outputs are valid here because they are set in __init__
+        self.assertEqual(valids, [True, True, True, True])
         top.run()
         self.assertEqual(top.comp1.run_count, 1)
         self.assertEqual(top.comp1.c, 3)
@@ -105,7 +122,7 @@ class DepGraphTestCase(unittest.TestCase):
         self.assertEqual(valids, [True, True, True, True])
         top.set('comp1.a', 5)
         valids = [top.comp1.get_valid(v) for v in vars]
-        self.assertEqual(valids, [False, True, False, False])
+        self.assertEqual(valids, [True, True, False, False])
         top.run()
         self.assertEqual(top.comp1.run_count, 2)
         self.assertEqual(top.comp1.c, 7)
@@ -122,7 +139,7 @@ class DepGraphTestCase(unittest.TestCase):
         self.assertEqual(top.comp2.c, 3)
         self.assertEqual(top.comp2.d, -1)
         valids = [top.comp2.get_valid(v) for v in vars]
-        self.assertEqual(valids, [False, False, False, False])
+        self.assertEqual(valids, [False, True, False, False])
         top.run()
         self.assertEqual(top.comp1.run_count, 2)
         self.assertEqual(top.comp2.run_count, 1)
@@ -132,8 +149,10 @@ class DepGraphTestCase(unittest.TestCase):
         self.assertEqual(valids, [True, True, True, True])
         
         
-    def test_lazy1(self):   
-        self.top.run()        
+    def test_lazy1(self):
+        print '***** test_lazy1'
+        self.top.run()
+        print '***** test_lazy1: post-run'
         run_counts = [self.top.get(x).run_count for x in allcomps]
         self.assertEqual([1, 1, 1, 1, 1, 1, 1, 1], run_counts)
         outs = [(5,-3),(3,-1),(5,1),(7,3),(4,6),(5,1),(3,-1),(8,6)]
@@ -141,20 +160,26 @@ class DepGraphTestCase(unittest.TestCase):
         for comp in allcomps:
             newouts.append((self.top.get(comp+'.c'),self.top.get(comp+'.d')))
         self.assertEqual(outs, newouts)
-        self.top.run()  
+        print '*** pre-run'
+        self.top.run()
+        print '** post-run'
         # run_count should stay at 1 for all comps
         self.assertEqual([1, 1, 1, 1, 1, 1, 1, 1], 
                          [self.top.get(x).run_count for x in allcomps])
+        print '**** end test_lazy1 ***'
         
     def test_lazy2(self):
+        print '***** test_lazy2'
         vars = ['a','b','c','d']
         self.top.run()        
+        run_count = [self.top.get(x).run_count for x in allcomps]
+        self.assertEqual([1, 1, 1, 1, 1, 1, 1, 1], run_count)
         valids = [self.top.sub.comp6.get_valid(v) for v in vars]
         self.assertEqual(valids, [True, True, True, True])
         self.top.sub.b6 = 3
         valids = [self.top.sub.comp6.get_valid(v) for v in vars]
         self.assertEqual(valids, [True, False, False, False])
-        self.top.run()  
+        self.top.run()
         # run_count should change only for comp6
         run_count = [self.top.get(x).run_count for x in allcomps]
         self.assertEqual([1, 1, 1, 1, 1, 2, 1, 1], run_count)
@@ -164,6 +189,7 @@ class DepGraphTestCase(unittest.TestCase):
                              (comp,self.top.get(comp+'.c'),self.top.get(comp+'.d')))
             
     def test_lazy3(self):
+        print '***** test_lazy3'
         vars = ['a','b','c','d']
         self.top.run()        
         valids = [self.top.sub.comp3.get_valid(v) for v in vars]
@@ -181,7 +207,8 @@ class DepGraphTestCase(unittest.TestCase):
                              (comp,self.top.get(comp+'.c'),self.top.get(comp+'.d')))
     
     def test_lazy4(self):
-        self.top.run()        
+        print '***** test_lazy4'
+        self.top.run()
         self.top.sub.set('b2', 5)
         self.top.run()  
         # run_count should change for all sub comps but comp3 and comp7 
@@ -193,7 +220,8 @@ class DepGraphTestCase(unittest.TestCase):
                              (comp,self.top.get(comp+'.c'),self.top.get(comp+'.d')))
     
     def test_lazy_inside_out(self):
-        self.top.run()        
+        print '***** test_lazy_inside_out'
+        self.top.run()
         self.top.comp7.b = 4
         # now run sub.comp1 directly to make sure it will force
         # running of all components that supply its inputs
@@ -215,6 +243,7 @@ class DepGraphTestCase(unittest.TestCase):
                              (comp,self.top.get(comp+'.c'),self.top.get(comp+'.d')))
 
     def test_set_already_connected(self):
+        print '***** test_already_connected'
         try:
             self.top.sub.comp2.b = 4
         except TraitError, err:

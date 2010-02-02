@@ -95,7 +95,7 @@ class MidFidelity(Assembly):
         self.output_mappings.append((mid, low, high))
         self.need_updated_corrections = True
 
-    def execute(self):
+    def execute(self, required_outputs=None):
         """ Compute results based on mid-fidelity approximation. """
         if self.lofi_model is None:
             self.raise_exception('No lofi model plugin', ValueError)

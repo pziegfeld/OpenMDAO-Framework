@@ -49,7 +49,7 @@ class OptRosenSuzukiComponent(Component):
         self.opt_objective = 6.
         self.opt_design_vars = [0., 1., 2., -1.]
 
-    def execute(self):
+    def execute(self, required_outputs=None):
         """calculate the new objective value"""
         self.result = (self.x[0]**2 - 5.*self.x[0] + 
                        self.x[1]**2 - 5.*self.x[1] +

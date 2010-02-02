@@ -133,7 +133,7 @@ class OptGolinskiComponent(Component):
         self.opt_objective = 0.29851384e+04
         self.opt_design_vars = [3.3,0.7,17.0,7.3,7.3,3.35020,5.2865]
 
-    def execute(self):
+    def execute(self, required_outputs=None):
         """calculate the new objective value"""
         # print ' Executing objective expression******'
         cf = [0.7854, 3.3333, 14.9334, 43.09340, 1.508, 7.477 ]

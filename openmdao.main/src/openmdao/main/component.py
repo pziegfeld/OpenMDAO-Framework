@@ -14,7 +14,7 @@ import sys
 from enthought.traits.api import List, Str, Python
 from enthought.traits.trait_base import not_event
 
-from openmdao.main.container import Container, VALID, INVALID
+from openmdao.main.container import Container
 from openmdao.main.filevar import FileMetadata, FileRef
 from openmdao.util.eggsaver import SAVE_CPICKLE
 from openmdao.util.eggobserver import EggObserver
@@ -68,7 +68,9 @@ class Component (Container):
         
         self._stop = False
         self._call_check_config = True
-        self._call_execute = True
+        self._execute_succeeded = True
+        self._modified_linked_outputs = [] # which linked outputs were invalid prior to last execution
+        #self._call_execute = True
         if directory:
             self.directory = directory
         
@@ -108,6 +110,8 @@ class Component (Container):
         
         Overrides of this function must call this version.
         """
+        self._execute_succeeded = False
+        
         if self._call_tree_rooted:
             self.tree_rooted()
             
@@ -115,21 +119,11 @@ class Component (Container):
             self.check_config()
             self._call_check_config = False
         
-        if self.parent is None: # if parent is None, we're not part of an Assembly
-                                # so Variable validity doesn't apply. Just execute.
-            self._call_execute = True
-            for name in self.list_inputs(valid=False):
-                self.set_valid(name, True)
-        else:
-            invalid_ins = self.list_inputs(valid=False)
-            if invalid_ins:
-                self._call_execute = True
-                self.parent.make_inputs_valid(self.name, invalid_ins)
-                #for name in invalid_ins:
-                    #self.set_valid(name, True)
-            if self.list_outputs(valid=False):
-                self._call_execute = True
-    def execute (self):
+        invalid_ins = self.list_inputs(valid=False)
+        if invalid_ins:
+            self.parent.make_inputs_valid(self.name, invalid_ins)
+                
+    def execute(self, required_outputs=None):
         """Perform calculations or other actions, assuming that inputs 
         have already been set. This must be overridden.
         """
@@ -140,14 +134,38 @@ class Component (Container):
         Overrides of this function must call this version.
         """
         # make our output Variables valid again
+        self._modified_linked_outputs = [name for name in self._output_links 
+                                            if name in self._changed_outs]
+        self._changed_outs.clear()
+            
+        # if we get this far, assume execute worked
+        self._execute_succeeded = True
+        self._valid = True
+        self.mark_valid_outputs() 
+        
+    def mark_valid_outputs(self):
+        """For a Component that is not an Assembly, all outputs
+        will be validated whenever the Component runs.  Assemblies
+        allow partial validation based on connectivity between inputs
+        and outputs.
+        """
         for name in self.list_outputs(valid=False):
             self.set_valid(name, True)
-        self._call_execute = False
-        self.state = VALID
-        
-    def run (self, force=False):
+    
+    def ok(self):
+        return self._execute_succeeded
+
+    def run (self, required_outputs=None):
         """Run this object. This should include fetching input variables,
-        executing, and updating output variables. Do not override this function.
+        executing, and updating output variables. If required_outputs is not
+        None, then the component may perform a partial execution to supply
+        the specified outputs.  Partial execution is generally not possible
+        for Components that are not Assemblies, because non-Assembly 
+        Components have complete connectivity between inputs and outputs, which
+        will always force them to update all of their outputs whenever they
+        execute.
+        
+        Do not override this function.
         """
         if self.directory:
             self.push_dir()
@@ -155,10 +173,11 @@ class Component (Container):
         self._stop = False
         try:
             self._pre_execute()
-            if self._call_execute or force:
-                if __debug__: self._logger.debug('execute %s' % self.get_pathname())
-                self.execute()
-                self._post_execute()
+            #if self._call_execute or force:
+            print 'executing %s' % self.get_pathname()
+            if __debug__: self._logger.debug('execute %s' % self.get_pathname())
+            self.execute(required_outputs=required_outputs)
+            self._post_execute()
         finally:
             if self.directory:
                 self.pop_dir()
@@ -257,6 +276,18 @@ class Component (Container):
                                  IndexError)
         os.chdir(newdir)
 
+    def get_modified_outputs(self):
+        """Return a dict containing names and values of outputs that have been
+        invalidated since the last execution.
+        
+        Only valid, enabled outputs will be added to the returned dict.
+        """
+        outdata = {}
+        for name in self._modified_linked_outputs:
+            if self.get_valid(name) and self.get_enabled(name):
+                outdata[name] = getattr(self, name)
+        return outdata
+    
     def checkpoint (self, outstream, fmt=SAVE_CPICKLE):
         """Save sufficient information for a restart. By default, this
         just calls save().
@@ -677,24 +708,23 @@ class Component (Container):
         """Stop this component."""
         self._stop = True
 
-    def invalidate_deps(self, varnames, notify_parent=False):
-        """Invalidate all of our valid outputs.
+    #def invalidate_deps(self, varnames, notify_parent=False):
+        #"""Invalidate all of our valid outputs.
         
-        Returns the names of all newly invalidated outputs.
-        """
-        self.state = INVALID
-        valid_outs = self.list_outputs(valid=True)
+        #Returns the names of all newly invalidated outputs.
+        #"""
+        #valid_outs = self.list_outputs(valid=True)
         
-        for var in varnames:
-            self.set_valid(var, False)
+        #for var in varnames:
+            #self.set_valid(var, False)
             
-        if notify_parent and self.parent and valid_outs:
-            self.parent.invalidate_deps(['.'.join([self.name,n]) for n in valid_outs], 
-                                        notify_parent)
-        for out in valid_outs:
-            self._valid_dict[out] = False
+        #if notify_parent and self.parent and valid_outs:
+            #self.parent.invalidate_deps(['.'.join([self.name,n]) for n in valid_outs], 
+                                        #notify_parent)
+        #for out in valid_outs:
+            #self._valid_dict[out] = False
             
-        return valid_outs
+        #return valid_outs
 
         
 # TODO: uncomment require_gradients and require_hessians after they're better thought out

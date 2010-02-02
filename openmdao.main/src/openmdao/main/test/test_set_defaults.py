@@ -15,7 +15,7 @@ class MyDefComp(Component):
     arr_in = Array(dtype=numpy.float, value=numpy.array([1.,2.,3.]), io_direction='in')
     list_in = List(value=['a','b','c'], io_direction='in')
     
-    def execute(self):
+    def execute(self, required_outputs=None):
         self.f_out = self.f_in + 1.
         
 class MyNoDefComp(Component):
@@ -24,7 +24,7 @@ class MyNoDefComp(Component):
     arr_in = Array(dtype=numpy.float, io_direction='in')
     list_in = List(io_direction='in')
     
-    def execute(self):
+    def execute(self, required_outputs=None):
         self.f_out = self.f_in + 1.
         
 

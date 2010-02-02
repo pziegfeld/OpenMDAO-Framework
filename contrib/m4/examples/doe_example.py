@@ -30,7 +30,7 @@ class MyModel(Assembly):
         doe.type = 'rand_lhs'
         doe.n_samples = 200
 
-    def execute(self):
+    def execute(self, required_outputs=None):
         """ Run model and print results. """
         super(MyModel, self).execute()
         for i, case in enumerate(self.M4_DOE.outerator):

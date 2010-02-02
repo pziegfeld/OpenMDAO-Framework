@@ -41,7 +41,7 @@ class DrivenComponent(Component):
     def __init__(self, *args, **kwargs):
         super(DrivenComponent, self).__init__(*args, **kwargs)
 
-    def execute(self):
+    def execute(self, required_outputs=None):
         """ Compute results from input vector. """
         self.rosen_suzuki = rosen_suzuki(self.x)
         self.sum_y = 0

@@ -22,7 +22,7 @@ class TestComponent(Component):
     set_stop = Bool(False, io_direction='in')
     total_executions = Int(0, io_direction='out')
 
-    def execute(self):
+    def execute(self, required_outputs=None):
         self.total_executions += 1
         if self.set_stop:
             self.parent.workflow.stop()

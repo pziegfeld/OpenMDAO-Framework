@@ -69,7 +69,7 @@ class COBYLA(Driver):
         return eval(self._code)
 
         
-    def execute(self):
+    def execute(self, required_outputs=None):
         """ Run the model by invoking run() on the workflow. """
         self.iter_count = 0
         # get initial values of design vars

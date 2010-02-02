@@ -5,6 +5,20 @@ import unittest
 from enthought.traits.api import Float, Str, Instance, TraitError
 from openmdao.main.api import Assembly, Component, set_as_top
 
+def dump_stuff(obj, **kwargs):
+    valid = kwargs.get('valid')
+    io = kwargs.get('io_direction')
+    if io == 'in' or io == 'both':
+        for name in obj.list_inputs(valid=valid):
+            print '.'.join([obj.get_pathname(),name])
+    if io == 'out' or io == 'both':
+        for name in obj.list_outputs(valid=valid):
+            print '.'.join([obj.get_pathname(),name])
+    if kwargs.get('recurse'):
+        for val in obj.values():
+            if isinstance(val, Component):
+                dump_stuff(val, **kwargs)
+
 class Multiplier(Component):
     rval_in = Float(io_direction='in')
     rval_out = Float(io_direction='out')
@@ -17,7 +31,7 @@ class Multiplier(Component):
         self.mult = 1.5
         self.run_count = 0
 
-    def execute(self):
+    def execute(self, required_outputs=None):
         self.run_count += 1
         self.rval_out = self.rval_in * self.mult
         
@@ -36,7 +50,7 @@ class Simple(Component):
         self.d = 1.5
         self.run_count = 0
 
-    def execute(self):
+    def execute(self, required_outputs=None):
         self.run_count += 1
         self.c = self.a + self.b
         self.d = self.a - self.b
@@ -50,7 +64,7 @@ class DummyComp(Component):
     r2out = Float(io_direction='out')
     sout = Str(io_direction='out')
     
-    dummy_in = Instance(Component, io_direction='in')
+    dummy_in  = Instance(Component, io_direction='in')
     dummy_out = Instance(Component, io_direction='out')
     
     def __init__(self):
@@ -61,13 +75,15 @@ class DummyComp(Component):
         self.r2out = 0.0
         self.s = 'a string'
         self.sout = ''
+        self.run_count = 0
         
         # make a nested container with input and output ContainerVars
         self.add_container('dummy', Multiplier())
-        self.dummy_in = self.dummy
         self.dummy_out = self.dummy
+        self.dummy_in = self.dummy
                 
-    def execute(self):
+    def execute(self, required_outputs=None):
+        self.run_count += 1
         self.rout = self.r * 1.5
         self.r2out = self.r2 + 10.0
         self.sout = self.s[::-1]
@@ -81,17 +97,16 @@ class AssemblyTestCase(unittest.TestCase):
         """
         top
             comp1
-            nested
-                comp1
             comp2
             comp3
+            nested
+                comp1
         """
         self.asm = set_as_top(Assembly())
-        self.asm.add_container('comp1', DummyComp())        
+        for name in ['comp1', 'comp2', 'comp3']:
+            self.asm.add_container(name, DummyComp())
         self.asm.add_container('nested', Assembly())
         self.asm.nested.add_container('comp1', DummyComp())
-        for name in ['comp2', 'comp3']:
-            self.asm.add_container(name, DummyComp())
         
     def test_lazy_eval(self):
         top = set_as_top(Assembly())
@@ -304,10 +319,14 @@ class AssemblyTestCase(unittest.TestCase):
         comp2 = self.asm.get('comp2')
         self.asm.connect('comp1.rout', 'comp2.r')
         self.asm.run()
+        self.assertEqual(self.asm.comp1.run_count, 1)
+        self.assertEqual(self.asm.comp2.run_count, 1)
         self.assertEqual(comp2.r, 1.5)
         self.asm.comp1.r = 3.0
         self.asm.run()
         self.assertEqual(comp2.r, 4.5)
+        self.assertEqual(self.asm.comp1.run_count, 2)
+        self.assertEqual(self.asm.comp2.run_count, 2)
         
         # now disconnect
         self.asm.comp1.r = 6.0
@@ -325,14 +344,22 @@ class AssemblyTestCase(unittest.TestCase):
         asm.add_container('nested', Assembly())
         asm.nested.add_container('comp1', Simple())
         asm.nested.add_container('comp2', Simple())
-        asm.nested.create_passthrough('comp1.a') 
-        asm.nested.connect('a', 'comp2.b') 
+        
+        # the following 2 statements connect asm.nested.a to two different inputs
+        asm.nested.create_passthrough('comp1.a')
+        self.assertEqual(asm.nested.a, asm.nested.comp1.a)
+        asm.nested.connect('a', 'comp2.b')
+        
         self.assertEqual(asm.nested.comp1.a, 4.)
+        self.assertEqual(asm.nested.get_valid('a'), True)
+        self.assertEqual(asm.nested.comp1.get_valid('a'), False)
+        self.assertEqual(asm.nested.comp2.get_valid('b'), False)
         self.assertEqual(asm.nested.comp2.b, 5.)
         asm.nested.a = 0.5
         # until we run, the values of comp1.a and comp2.b won't change
         self.assertEqual(asm.nested.comp1.a, 4.)
         self.assertEqual(asm.nested.comp2.b, 5.)
+        self.assertEqual(asm.nested.comp1.get_valid('a'), False)
         self.assertEqual(asm.nested.comp2.get_valid('b'), False)
         asm.run()
         self.assertEqual(asm.nested.comp1.a, 0.5)

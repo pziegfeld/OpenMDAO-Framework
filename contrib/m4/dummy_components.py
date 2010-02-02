@@ -26,7 +26,7 @@ class Model_A2d(Component):
         super(Model_A2d, self).__init__(*args, **kwargs)
         self._m4_comp = mool.Optimization.Models_test.Model_A2d()
 
-    def execute(self):
+    def execute(self, required_outputs=None):
         """ Run M4 component. """
         vec = [self.x, self.y]
         self.z1 = self._m4_comp.RunModel(vec, 0)
@@ -48,7 +48,7 @@ class Model_B2d(Component):
         super(Model_B2d, self).__init__(*args, **kwargs)
         self._m4_comp = mool.Optimization.Models_test.Model_B2d()
 
-    def execute(self):
+    def execute(self, required_outputs=None):
         """ Run M4 component. """
         vec = [self.x, self.y]
         self.z = self._m4_comp.RunModel(vec, 0)

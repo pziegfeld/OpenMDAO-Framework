@@ -17,7 +17,7 @@ class HollowSphere(Component):
     def __init__(self, doc=None, directory=''):
         super(HollowSphere, self).__init__(doc, directory) 
         
-    def execute(self):
+    def execute(self, required_outputs=None):
         self.surface_area = 4.0*pi*self.radius*self.radius
         self.inner_volume = 4.0/3.0*pi*self.radius**3
         self.volume = 4.0/3.0*pi*(self.radius+self.thickness)**3

@@ -34,7 +34,7 @@ class AxodComp(Component):
         super(AxodComp, self).__init__(doc, directory)
         self.input_filename = input_filename
 
-    def execute(self):
+    def execute(self, required_outputs=None):
         """ Run AXOD. """
         if os.path.exists('axod.out'):
             os.remove('axod.out')

@@ -20,7 +20,7 @@ class Adder(Component):
         super(Adder, self).__init__()
         self.runcount = 0
         
-    def execute(self):
+    def execute(self, required_outputs=None):
         self.sum = self.x1 + self.x2
         self.runcount += 1
         
@@ -36,7 +36,7 @@ class ExprComp(Component):
         self.expr = expr
         self.runcount = 0
         
-    def execute(self):
+    def execute(self, required_outputs=None):
         x = self.x
         self.f_x = eval(self.expr)
         self.runcount += 1
@@ -54,7 +54,7 @@ class ExprComp2(Component):
         self.expr = expr
         self.runcount = 0
         
-    def execute(self):
+    def execute(self, required_outputs=None):
         x = self.x
         y = self.y
         self.f_xy = eval(self.expr)

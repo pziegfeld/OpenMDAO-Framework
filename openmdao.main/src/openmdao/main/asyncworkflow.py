@@ -17,7 +17,10 @@ from openmdao.main.component import Component
 
 __all__ = ('AsyncWorkflow',)
 
-verbose = True
+# 'fake' component nodes in the workflow used to represent data
+# flow to/from the boundary of the Assembly
+BOUNDARY_IN = '@in'
+BOUNDARY_OUT = '@out'
 
 class AsyncWorkflow(Workflow):
     """
@@ -38,6 +41,8 @@ class AsyncWorkflow(Workflow):
         super(AsyncWorkflow, self).__init__(scope=scope)
         
         self._comp_graph = nx.DiGraph()
+        self._comp_graph.add_nodes_from([BOUNDARY_IN, BOUNDARY_OUT])
+        self._child_io_graphs = {}
         self._verbose = verbose
 
         self.sequential = False
@@ -56,16 +61,18 @@ class AsyncWorkflow(Workflow):
         """ Add a new node to the end of the flow. """
         if isinstance(getattr(self.scope, node), Component):
             self._comp_graph.add_node(node)
+            self._child_io_graphs[node] = None
         else:
             raise TypeError('%s is not a Component' % 
                             '.'.join((self.scope.get_pathname(),node)))
         
     def nodes(self):
-        return self._comp_graph.nodes()
+        return [n for n in self._comp_graph.nodes() if not n.startswith('@')]
         
     def remove_node(self, node):
         """Remove a component from this Workflow and any of its children."""
         self._comp_graph.remove_node(node)
+        del self._child_io_graphs[node]
 
     def run(self, compnames=None):
         """
@@ -73,7 +80,7 @@ class AsyncWorkflow(Workflow):
         mapping components to required outputs (or None for all).
         """
         if compnames is None:
-            compnames = self._comp_graph.nodes()
+            compnames = self._child_io_graphs.keys()
         self._setup(compnames)
         if not self._ready_q:
             return
@@ -83,51 +90,68 @@ class AsyncWorkflow(Workflow):
         """ Return True if it makes sense to 'step' this component. """
         return len(self._comp_graph) > 1
 
+    def _parse_pathnames(self, srcpath, destpath):
+        srcparts = srcpath.split('.', 1)
+        if len(srcparts) > 1:
+            srccompname, srcvarname = srcpath.split('.', 1)
+        else:
+            srccompname = BOUNDARY_IN
+            srcvarname = srcpath
+        destparts = destpath.split('.', 1)
+        if len(destparts) > 1:
+            destcompname, destvarname = destpath.split('.', 1)
+        else:
+            destcompname = BOUNDARY_OUT
+            destvarname = destpath
+        return (srccompname, srcvarname, destcompname, destvarname)
+        
     def connect(self, srcpath, destpath):
         """Add an edge to our Component graph from *srccompname* to *destcompname*.
         The *srcvarname* and *destvarname* args are for data reporting only.
         """
-        srccompname, srcvarname = srcpath.split('.', 1)
-        destcompname, destvarname = destpath.split('.', 1)
+        srccompname, srcvarname, destcompname, destvarname = \
+                                     self._parse_pathnames(srcpath, destpath)
         
         # if an edge already exists between the two components, 
         # just increment the ref count
         graph = self._comp_graph
         try:
-            graph[srccompname][destcompname]['refcount'] += 1
+            data = graph[srccompname][destcompname]
         except KeyError:
-            graph.add_edge(srccompname, destcompname, refcount=1)
+            io_connects = {srcvarname:[destvarname]}
+            graph.add_edge(srccompname, destcompname, io_connects=io_connects)
             
-        if not is_directed_acyclic_graph(graph):
-            # do a little extra work here to give more info to the user in the error message
-            strongly_connected = strongly_connected_components(graph)
-            refcount = graph[srccompname][destcompname]['refcount'] - 1
-            if refcount == 0:
-                graph.remove_edge(srccompname, destcompname)
-            else:
-                graph[srccompname][destcompname]['refcount'] = refcount
-            for strcon in strongly_connected:
-                if len(strcon) > 1:
-                    raise CircularDependencyError(
+            if not is_directed_acyclic_graph(graph):
+                # do a little extra work here to give more info to the user in the error message
+                strongly_connected = strongly_connected_components(graph)
+                # put the graph back the way it was before the cycle was created
+                io_connects[srcvarname].remove(destvarname)
+                if len(io_connects[srcvarname]) == 0:
+                    del io_connects[srcvarname]
+                    if len(io_connects) == 0:
+                        graph.remove_edge(srccompname, destcompname)
+                raise CircularDependencyError(
                         'circular dependency (%s) would be created by connecting %s to %s' %
-                                 (str(strcon), 
-                                  '.'.join([srccompname,srcvarname]), 
-                                  '.'.join([destcompname,destvarname]))) 
+                        (str(strongly_connected[0]), 
+                         '.'.join([srccompname,srcvarname]), 
+                         '.'.join([destcompname,destvarname]))) 
         
     def disconnect(self, srcpath, destpath):
         """Decrement the ref count for the edge in the dependency graph 
         between the two components, or remove the edge if the ref count
         reaches 0.
         """
-        comp1name, var1name = srcpath.split('.', 1)
-        comp2name, var2name = destpath.split('.', 1)
-        refcount = self._comp_graph[comp1name][comp2name]['refcount'] - 1
-        if refcount == 0:
-            self._comp_graph.remove_edge(comp1name, comp2name)
-        else:
-            self._comp_graph[comp1name][comp2name]['refcount'] = refcount
-
-#=================================================================================
+        srccompname, srcvarname, destcompname, destvarname = \
+                                      self._parse_pathnames(srcpath, destpath)
+        try:
+            io_connects = self._comp_graph[srccompname][destcompname]['io_connects']
+        except KeyError:
+            return # ignore disconnection of things that aren't connected
+        io_connects[srcvarname].remove(destvarname)
+        if len(io_connects[srcvarname]) == 0:
+            del io_connects[srcvarname]
+            if len(io_connects) == 0:
+                self._comp_graph.remove_edge(srccompname, destcompname)
 
     @property
     def is_active(self):
@@ -155,7 +179,7 @@ class AsyncWorkflow(Workflow):
         failures = []
         for compname in self._compnames:
             comp = getattr(self.scope, compname)
-            if not comp.is_valid() and comp.is_ready():
+            if not comp.ok():
                 failures.append(compname)
         if failures:
             raise RuntimeError('the following components failed: %s' % failures)
@@ -173,6 +197,7 @@ class AsyncWorkflow(Workflow):
         if self.is_active:
             worker, compname, msg, ready = self._done_q.get()
             self._pool.release(worker)
+            print 'in %s:step: removing %s from active list' % (self.scope.name,compname)
             self._active.remove(compname)
             if msg is None:
                 # Note that multiple workers may think that they are
@@ -181,6 +206,7 @@ class AsyncWorkflow(Workflow):
                     if dependent.name in self._compnames:
                         if dependent not in self._ready_q:
                             dependent.set_ready()
+                            print 'in %s:step: adding %s to _ready_q' % (self.scope.name,dependent.name)
                             self._ready_q.append(dependent)
             else:
                 raise RuntimeError('Component failed: %s' % msg)
@@ -192,8 +218,11 @@ class AsyncWorkflow(Workflow):
         self._stop = True
 
     def _setup(self, compnames):
-        """ Setup to begin evaluation. """
+        """ Setup to begin evaluation. 
+        Puts all ready components on the ready queue.
+        """
         self._compnames = compnames
+        print 'in %s:_setup: clearing active list. contents were %s' % (self.scope.name,self._active)
         self._active = []
         self.dispatch_table = []
 
@@ -204,9 +233,31 @@ class AsyncWorkflow(Workflow):
             except Queue.Empty:
                 break
 
-        # Get components that are ready-to-run.
-        self._ready_q = [comp for comp in [getattr(self.scope, cname) for cname in self._compnames] 
-                             if comp.is_ready()]
+        # Get components that are ready-to-run, as well as components that will
+        # be ready to run as soon as they get some inputs from other components that
+        # are already valid
+        comps = [getattr(self.scope, cname) for cname in self._compnames]
+        self._ready_q = []
+        runinfos = [(comp, comp.get_run_info()) for comp in comps]
+        for comp, stuff in runinfos:
+            ready, outputs = stuff
+            if ready:
+                if not comp in self._ready_q:
+                    self._ready_q.append(comp)
+            else:
+                for name, val in outputs.items():
+                    srcpath = '.'.join((comp.name, name))
+                    for src,dest in self.scope._var_graph.edges(srcpath):
+                        tup = dest.split('.', 1)
+                        if len(tup) == 2:
+                            destcomp = getattr(self.scope, tup[0])
+                            if destcomp.get_valid(tup[1]) is False:
+                                destcomp.set(tup[1], val, srcname=srcpath)
+                            if destcomp.is_ready() and destcomp not in self._ready_q:
+                                self._ready_q.append(destcomp)
+                
+        #self._ready_q = [comp for comp in comps if comp.is_ready()]
+        print 'in %s:_setup: comps %s are now ready' % (self.scope.name,[comp.name for comp in comps if comp.is_ready()])
         
     def _start(self):
         """ Start all runnable components (unless sequential). """
@@ -217,6 +268,7 @@ class AsyncWorkflow(Workflow):
             comp = self._ready_q.pop(0)
             worker_q.put(comp)
             self._active.append(comp.name)
+            print 'in %s:_start: %s is now active' % (self.scope.name,comp.name)
             launched.append(comp.name)
             if self.sequential:
                 break
@@ -238,21 +290,20 @@ class AsyncWorkflow(Workflow):
             try:
                 # FIXME: put partial execution stuff back later
                 comp.run()
-            except Exception:
-                msg = traceback.format_exc()
+            except Exception, err:
+                msg = traceback.format_exc() + ': ' + str(err)
             else:
                 # Update dependent components.
                 try:
-                    outdata = comp.get_outgoing_data()
+                    outdata = comp.get_modified_outputs()
                     updated = set()
                     for name, val in outdata.items():
                         srcpath = '.'.join((comp.name, name))
-                        for dest in self.scope._var_graph.succ[srcpath]:
+                        for src,dest in self.scope._var_graph.edges(srcpath):
                             tup = dest.split('.', 1)
                             if len(tup) == 2:
                                 destcomp = getattr(self.scope, tup[0])
-                                destcomp.set(tup[1], val, 
-                                             srcname=srcpath)
+                                destcomp.set(tup[1], val, srcname=srcpath)
                                 updated.add(destcomp)
                             else: # boundary output
                                 self.scope.set(dest, val, 
@@ -262,8 +313,8 @@ class AsyncWorkflow(Workflow):
     
                     # Check if updated components are now ready.
                     ready = [ucomp for ucomp in updated if ucomp.is_ready()]
-                except Exception:
-                    msg = traceback.format_exc()
+                except Exception, err:
+                    msg = traceback.format_exc() + ': ' + str(err)
 
             request_q.task_done()
             self._done_q.put((request_q, comp.name, msg, ready))

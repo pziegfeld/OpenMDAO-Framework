@@ -57,7 +57,7 @@ class Chassis(Component):
         
         
         
-    def execute(self):
+    def execute(self, required_outputs=None):
         """ Calculates the instantaneous acceleration for the vehicle.       
             """        
         torque = self.engine_torque*self.torque_ratio

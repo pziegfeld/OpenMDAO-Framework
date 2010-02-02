@@ -13,7 +13,7 @@ class SocketComp(Assembly):
     def __init__(self):
         super(SocketComp, self).__init__('SocketComp')
         
-    def execute(self):
+    def execute(self, required_outputs=None):
         self.num_cases = 0
         for case in self.iterator:
             self.num_cases += 1

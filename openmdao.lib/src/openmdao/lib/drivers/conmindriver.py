@@ -241,7 +241,7 @@ class CONMINdriver(Driver):
         self.cons_is_linear = numarray.zeros(0, 'i') 
         
         
-    def execute(self):
+    def execute(self, required_outputs=None):
         """Perform the optimization."""
         # set conmin array sizes and such
         self._config_conmin()

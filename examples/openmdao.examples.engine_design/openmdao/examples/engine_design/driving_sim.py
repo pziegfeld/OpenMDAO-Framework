@@ -93,7 +93,7 @@ class DrivingSim(Assembly):
         self.create_passthrough('vehicle.area')
 
         
-    def execute(self):
+    def execute(self, required_outputs=None):
         """ Simulate the vehicle model at full throttle."""
         #--------------------------------------------------------------------
         # Simulate acceleration time from 0 to end_speed

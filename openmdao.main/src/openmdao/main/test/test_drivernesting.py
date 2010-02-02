@@ -40,7 +40,7 @@ class Summer(Driver):
         self.sum += self.objective.evaluate()
         self.itercount += 1
     
-    def execute(self):
+    def execute(self, required_outputs=None):
         global exec_order
         exec_order.append(self.name)
         super(Summer, self).execute()
@@ -58,7 +58,7 @@ class ExprComp(Component):
         self.runcount = 0
         self.expr = expr
         
-    def execute(self):
+    def execute(self, required_outputs=None):
         global exec_order
         exec_order.append(self.name)
         x = self.x
@@ -78,7 +78,7 @@ class ExprComp2(Component):
         self.runcount = 0
         self.expr = expr
 
-    def execute(self):
+    def execute(self, required_outputs=None):
         global exec_order
         exec_order.append(self.name)
         x = self.x

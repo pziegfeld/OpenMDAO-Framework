@@ -66,7 +66,7 @@ The Python code for the Paraboloid component is as follows:
         f_xy = Float(0.0, io_direction='out', desc='F(x,y)')        
 
         
-	def execute(self):
+	def execute(self, required_outputs=None):
 	    """ Solve (x-3)^2 + xy + (y+4)^2 = 3
 	        Optimal solution (minimum): x = 6.6667; y = -7.3333
 	        """
@@ -160,7 +160,7 @@ Finally, we need a function to execute this component:
 
 .. testcode:: simple_component_Paraboloid_pieces
 
-	def execute(self):
+	def execute(self, required_outputs=None):
 	    """ Solve (x-3)^2 + xy + (y+4)^2 = 3
 	        Optimal solution (minimum): x = 6.6667; y = -7.3333
 	        """

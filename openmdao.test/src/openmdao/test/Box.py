@@ -17,7 +17,7 @@ class Box(Component):
     def __init__(self, doc=None, directory=''):
         super(Box, self).__init__(doc, directory)
         
-    def execute(self):
+    def execute(self, required_outputs=None):
         self.surface_area = (self.width*(self.height+self.depth)+
                      self.depth*self.height)*2
         self.mass = self.surface_area*self.thickness*self.density        

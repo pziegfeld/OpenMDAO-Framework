@@ -25,7 +25,7 @@ class SphereFunction(Component):
     def __init__(self, desc=None):
         super(SphereFunction, self).__init__(desc)
             
-    def execute(self):
+    def execute(self, required_outputs=None):
         """ calculate the sume of the squares for the list of numbers """
         self.total = sum([x**2 for x in self.points])
         

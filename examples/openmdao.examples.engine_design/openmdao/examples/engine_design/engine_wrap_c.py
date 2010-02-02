@@ -101,7 +101,7 @@ class Engine(Component):
         #super(Engine, self).__init__(desc, directory)        
 
 
-    def execute(self):
+    def execute(self, required_outputs=None):
         """ Simulates the Otto cycle for an internal combustion engine.
             Power and Torque are returned at the engine output.
             """

@@ -39,6 +39,7 @@ from openmdao.util.log import Logger, logger, LOG_DEBUG
 from openmdao.main.factorymanager import create as fmcreate
 from openmdao.util import eggloader, eggsaver, eggobserver
 from openmdao.util.eggsaver import SAVE_CPICKLE
+from openmdao.util.objutil import deep_setattr
 from openmdao.main.interfaces import ICaseIterator, IResourceAllocator
 
 def set_as_top(cont):
@@ -47,17 +48,6 @@ def set_as_top(cont):
     """
     cont.tree_rooted()
     return cont
-
-def _deep_setattr(obj, path, value):
-    """A multi-level setattr, setting the value of an
-    attribute specified by a dotted path. For example,
-    deep_settattr(obj, 'a.b.c', value).
-    """
-    tup = path.split('.')
-    for name in tup[:-1]:
-        obj = getattr(obj, name)
-    setattr(obj, tup[-1], value)
-
     
 # TODO: implement get_closest_proxy, along with a way to detect
 # when a Container is proxy so we can differentiate between
@@ -150,13 +140,11 @@ class PathProperty(TraitType):
         setattr(self._ref() or self._resolve(obj), self._last_name, value)
     
 # Component states.
-INVALID = 0
-READY = 1
+READY = 1    # ready to run (one or more invalid outputs but no invalid inputs)
 RUNNING = 2
 STOPPED = 3
 INTERRUPTED = 4
 ERROR = 5
-VALID = 6
 
 # Component state strings
 state_strings = [
@@ -189,7 +177,8 @@ class Container(HasTraits):
         self._sources = {}  # for checking that destination traits cannot be 
                             # set by other objects
         self._output_links = {} # outputs that are being used by other components
-                                 # -has the form: { <outputname>: [<destpath1>, destpath2>, ...] }
+                                 # -has the form: { <outputname>: count }
+        self._changed_outs = set() # outputs changed since last execution
         # for keeping track of dynamically added traits for serialization
         self._added_traits = {}  
                           
@@ -202,18 +191,26 @@ class Container(HasTraits):
         
         self._call_tree_rooted = True
         
+        # a tuple containing an id number and an io graph (connectivity graph
+        # between inputs and outputs). The id number is passed by a caller
+        # who is requesting this container's io graph. If the io graph has
+        # changed since the last time the caller requested it, the id will
+        # differ from the stored value.  The id is just a counter that is 
+        # incremented each time a new io graph is generated.  For non-Assembly
+        # containers, io graph generation will only happen once because the
+        # internal connectivity cannot change.
+        self._io_info = (None, None)
+        
         if doc is not None:
             self.__doc__ = doc
             
-        self.state = INVALID
+        self._valid = False
 
         # TODO: see about turning this back into a regular logger and just
         # handling its unpickleability in __getstate__/__setstate__ in
         # order to avoid the extra layer of function calls when logging
         self._logger = Logger('')
         self.log_level = LOG_DEBUG
-
-        self._io_graph = None
 
         # Create per-instance initial FileRefs for FileTraits. There ought
         # to be a better way to not share default initial values, but
@@ -366,7 +363,6 @@ class Container(HasTraits):
             names = self._traits_meta_filter(None, **metadata).keys()
         return super(Container, self).trait_get(*names, **metadata)
     
-        
     # call this if any trait having 'io_direction' metadata is changed    
     def _io_trait_changed(self, obj, name, old, new):
         # setting old to Undefined is a kludge to bypass the destination check
@@ -385,13 +381,14 @@ class Container(HasTraits):
                     "cannot be directly set"%
                     (name, self._sources[name]), TraitError)
             else:
-                self._call_execute = True
                 # invalidate our outputs
-                self.invalidate()
+                self.invalidate([name])
                 self.set_valid(name, True) # input is valid when set
-        #elif self.get_valid(name):  # if var is output and not already invalid
-            #self.invalidate_deps([name], notify_parent=True)
-    
+                self._valid = False
+        else:  # io_direction = 'out'
+            self.set_valid(name, True)
+            self._changed_outs.add(name)
+
     # error reporting stuff
     def _get_log_level(self):
         """Return logging message level."""
@@ -428,34 +425,34 @@ class Container(HasTraits):
         
     def is_ready(self):
         """ Return True if this component is ready (and needs) to run. """
-        if self.state == READY:
-            return True
-        elif self.state == VALID:
-            return False
-
         for name in self.list_inputs():
             if not self.get_valid(name) or not self.get_enabled(name):
                 return False  # Not ready -- not all inputs valid.
-        return True
+        if not self._valid:
+            return True
+        return len(self.list_outputs(valid=False)) > 0
+    
+    def get_run_info(self):
+        """Return a tuple of the form (ready, { output1:value, output2:value, ...]) where
+        ready is True if this component is ready (and needs to) run.  If this
+        component is ready to run, the dict of outputs will be empty.  If
+        it's not ready but has valid inputs, then the dict will contain all of its 
+        linked outputs that are both valid and enabled.
+        """
+        if self.is_ready():
+            return (True, {})
+        else:
+            if self.list_inputs(valid=False):
+                return (False, {})
+            else:
+                return (False, dict([(out,getattr(self,out)) for out in self._output_links 
+                            if self.get_valid(out) and self.get_enabled(out)]))
 
     def set_ready(self):
         """ Set this component as enabled and ready. """
         self._enabled = True
         self.state = READY
 
-    def is_valid(self, required_outputs=None):
-        """ Return True if this component's outputs are valid, which means that
-        it does not need to run."""
-        if not self._enabled:
-            return False
-        elif required_outputs is None:
-            return self.state == VALID
-        else:
-            for name in required_outputs:
-                if name in self._output_links and not get_valid(name):
-                    return False
-            return True
-        
     def get_valid(self, name):
         """Get the value of the validity flag for the io trait with the given
         name.
@@ -516,22 +513,21 @@ class Container(HasTraits):
             if v is valid:
                 return False
             else:
+                if valid is False and self.trait(name).io_direction == 'in':
+                    self.invalidate([name])
                 self._valid_dict[name] = valid
-        if valid is False and self.parent:
-            trait = self.trait(name)
-            if trait and trait.io_direction == 'in':
-                self.invalidate()
         return True
 
-    def invalidate(self):
+    def invalidate(self, inputs=None):
         """ Invalidate all linked outputs and inputs connected to them. """
-        if self.state != INVALID:
-            self.state = INVALID
-            invalidated = self.list_outputs(valid=True)
-            for name in invalidated:
-                self.set_valid(name, False)
-            if self.parent and invalidated:
-                self.parent.invalidate_dependent_inputs(self.name, invalidated)
+        if not inputs:
+            inputs = self.list_inputs(valid=True)
+        invalidated = self.list_outputs(valid=True)
+        for name in invalidated:
+            print 'Container.invalid: invalidating %s.%s' % (self.name, name)
+            self.set_valid(name, False)
+        if self.parent and invalidated:
+            self.parent.invalidate_dependent_inputs(self.name, invalidated)
 
     def set_enabled(self, name, enabled):
         """Mark the io trait with the given name as enabled or not.
@@ -698,18 +694,6 @@ class Container(HasTraits):
             fval = self.get_valid
             return [n for n in self._input_names if fval(n)==valid]
         
-    def get_outgoing_data(self):
-        """Return a dict containing output names and their values.  The form is:
-        { <outname>: value, <outname2>: value2 ... }
-        
-        Only valid, enabled outputs will be added to the returned dict.
-        """
-        outdata = {}
-        for name in self._output_links:
-            if self.get_valid(name) and self.get_enabled(name):
-                outdata[name] = getattr(self, name)
-        return outdata
-    
     def list_outputs(self, valid=None):
         """Return a list of names of output values. If valid is not None,
         the the list will contain names of outputs with matching validity.
@@ -832,16 +816,12 @@ class Container(HasTraits):
             self.raise_exception("this object is not callable",
                                  RuntimeError)        
         
-    def get(self, path, index=None):
+    def get(self, path, index=None, validate=False):
         """Return any public object specified by the given 
-        path, which may contain '.' characters.  
-        
-        Returns the value specified by the name. This will either be the value
-        of a Variable or some attribute of a Variable.
-        
+        path, which may contain '.' characters.  The index
+        arg can be used to access individual entries within
+        array or list objects.
         """
-        assert(path is None or isinstance(path, basestring))
-        
         if path is None:
             if index is None:
                 return self
@@ -899,7 +879,6 @@ class Container(HasTraits):
                 "'%s' is already connected to source '%s'" % 
                 (name, self._sources[name]), TraitError)
         self._sources[name] = source
-        self.invalidate()
             
     def remove_source(self, destination):
         """Remove the source from the given destination io trait. This will
@@ -908,8 +887,6 @@ class Container(HasTraits):
         """
         del self._sources[destination]
         self.set_valid(destination, True) # disconnected inputs are always valid
-        if not self.list_outputs(valid=False): # if no invalid outputs, we're VALID
-            self.state = VALID
         
     def _check_trait_settable(self, name, srcname=None, force=False):
         if force:
@@ -991,7 +968,7 @@ class Container(HasTraits):
                     obj._array_set('.'.join(tup[1:]), value, index)
                 else:
                     try:
-                        _deep_setattr(obj, '.'.join(tup[1:]), value)
+                        deep_setattr(obj, '.'.join(tup[1:]), value)
                     except Exception:
                         self.raise_exception("object has no attribute '%s'" % 
                                              path, TraitError)
@@ -1034,6 +1011,29 @@ class Container(HasTraits):
                 arr = arr[idx]
             return arr
     
+    def get_io_info(self, graph_id):
+        """Return a tuple containing a graph id and a graph connecting our
+        input variables to our output variables. In the case of a simple
+        Container or Component, all input variables are predecessors to all
+        output variables and the io graph never changes.  Returning None as
+        the graph id indicates to the caller that the io graph never changes.
+        """
+        if self._io_info[1] is None:
+            io_graph = nx.DiGraph()
+            self._io_info = (None, io_graph)
+            name = self.name
+            ins = ['.'.join((name, v)) for v in self.list_inputs()]
+            outs = ['.'.join((name, v)) for v in self.list_outputs()]
+            
+            # add nodes for all of the variables
+            io_graph.add_nodes_from(ins)
+            io_graph.add_nodes_from(outs)
+            
+            # specify edges, with all inputs as predecessors to all outputs
+            for invar in ins:
+                io_graph.add_edges_from([(invar, o) for o in outs])
+        return self._io_info
+
     def replace(self, name, newobj):
         """This is intended to allow replacement of a named object by
         a new object that may be a newer version of the named object or
@@ -1169,31 +1169,6 @@ class Container(HasTraits):
         """Perform any required operations before the model is deleted."""
         [x.pre_delete() for x in self.values() if isinstance(x, Container)]
 
-    def get_io_graph(self):
-        """Return a graph connecting our input variables to our output
-        variables. In the case of a simple Container, all input variables are
-        predecessors to all output variables.
-        """
-        # NOTE: if the _io_graph changes, this function must return a NEW
-        # graph object instead of modifying the old one, because object
-        # identity is used in the parent assembly to determine of the graph
-        # has changed
-        if self._io_graph is None:
-            self._io_graph = nx.DiGraph()
-            io_graph = self._io_graph
-            name = self.name
-            ins = ['.'.join([name, v]) for v in self.keys(io_direction='in')]
-            outs = ['.'.join([name, v]) for v in self.keys(io_direction='out')]
-            
-            # add nodes for all of the variables
-            io_graph.add_nodes_from(ins)
-            io_graph.add_nodes_from(outs)
-            
-            # specify edges, with all inputs as predecessors to all outputs
-            for invar in ins:
-                io_graph.add_edges_from([(invar, o) for o in outs])
-        return self._io_graph
-    
     def _build_trait(self, pathname, io_direction=None, trait=None):
         """Asks the component to dynamically create a trait for the 
         attribute given by ref_name, based on whatever knowledge the

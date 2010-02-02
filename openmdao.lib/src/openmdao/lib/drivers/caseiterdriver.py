@@ -82,7 +82,7 @@ class CaseIteratorDriver(Driver):
         self._exceptions = {}
         self._rerun = []
 
-    def execute(self):
+    def execute(self, required_outputs=None):
         """ Run each case in iterator and record results in recorder. """
         self._start()
         self._cleanup()

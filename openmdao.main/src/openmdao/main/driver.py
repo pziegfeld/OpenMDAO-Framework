@@ -34,41 +34,71 @@ class Driver(Component):
         self._simple_iteration_set = None    
         self._driver_tree = None
         
-    def _pre_execute (self):
-        """Call base class _pre_execute after determining if we have any invalid
-        ref variables, which will cause us to have to regenerate our ref dependency graph.
-        """
-        if self._call_execute:
-            super(Driver, self)._pre_execute()
-            return
+    #def _pre_execute (self):
+        #"""Call base class _pre_execute after determining if we have any invalid
+        #ref variables, which will cause us to have to regenerate our ref dependency graph.
+        #"""
+        ##if self._call_execute:
+            ##super(Driver, self)._pre_execute()
+            ##return
         
+        #refnames = self.get_refvar_names(io_direction='in')
+        
+        #if not all(self.get_valids(refnames)):
+            #self._call_execute = True
+            ## force regeneration of _ref_graph, _ref_comps, _iteration_comps
+            #self._ref_graph = { None: None, 'in': None, 'out': None } 
+            #self._ref_comps = { None: None, 'in': None, 'out': None }
+            #self.graph_regen_needed()
+            
+        #super(Driver, self)._pre_execute()
+        
+        #if not self._call_execute:
+            ## force execution of the driver if any of its StringRefs reference
+            ## invalid Variables
+            #for name in refnames:
+                #rv = getattr(self, name)
+                #if isinstance(rv, list):
+                    #for entry in rv:
+                        #if not entry.refs_valid():
+                            #self._call_execute = True
+                            #return
+                #else:
+                    #if not rv.refs_valid():
+                        #self._call_execute = True
+                        #return
+
+    def is_ready (self):
+        """Return True if this driver is ready to run.
+        """
+        if super(Driver, self).is_ready():
+            return True
+
         refnames = self.get_refvar_names(io_direction='in')
         
+        # TODO: this should really be a callback, any time a StringRef input is changed
         if not all(self.get_valids(refnames)):
-            self._call_execute = True
-            # force regeneration of _ref_graph, _ref_comps, _iteration_comps
+            #self._call_execute = True
+            ## force regeneration of _ref_graph, _ref_comps, _iteration_comps
             self._ref_graph = { None: None, 'in': None, 'out': None } 
             self._ref_comps = { None: None, 'in': None, 'out': None }
             self.graph_regen_needed()
             
-        super(Driver, self)._pre_execute()
-        
-        if not self._call_execute:
-            # force execution of the driver if any of its StringRefs reference
-            # invalid Variables
-            for name in refnames:
-                rv = getattr(self, name)
-                if isinstance(rv, list):
-                    for entry in rv:
-                        if not entry.refs_valid():
-                            self._call_execute = True
-                            return
-                else:
-                    if not rv.refs_valid():
-                        self._call_execute = True
+        # force execution of the driver if any of its StringRefs reference
+        # invalid Variables
+        for name in refnames:
+            rv = getattr(self, name)
+            if isinstance(rv, list):
+                for entry in rv:
+                    if not entry.refs_valid():
+                        #self._call_execute = True
                         return
+            else:
+                if not rv.refs_valid():
+                    #self._call_execute = True
+                    return
 
-    def execute(self):
+    def execute(self, required_outputs=None):
         """ Iterate over a collection of Components until some condition
         is met. If you don't want to structure your driver to use pre_iteration,
         post_iteration, etc., just override this function. As a result, none
@@ -142,21 +172,21 @@ class Driver(Component):
         self._ref_comps[io_direction] = comps
         return comps
         
-    def get_ref_graph(self, io_direction=None):
-        """Returns the dependency graph for this Driver based on
-        StringRefs and StringRefArrays.
-        """
-        if self._ref_graph[io_direction] is not None:
-            return self._ref_graph[io_direction]
+    #def get_ref_graph(self, io_direction=None):
+        #"""Returns the dependency graph for this Driver based on
+        #StringRefs and StringRefArrays.
+        #"""
+        #if self._ref_graph[io_direction] is not None:
+            #return self._ref_graph[io_direction]
         
-        self._ref_graph[io_direction] = nx.DiGraph()
-        name = self.name
+        #self._ref_graph[io_direction] = nx.DiGraph()
+        #name = self.name
         
-        if io_direction == 'out' or io_direction is None:
-            self._ref_graph[io_direction].add_edges_from([(name,rv) 
-                                  for rv in self.get_referenced_comps(io_direction='out')])
+        #if io_direction == 'out' or io_direction is None:
+            #self._ref_graph[io_direction].add_edges_from([(name,rv) 
+                                  #for rv in self.get_referenced_comps(io_direction='out')])
             
-        if io_direction == 'in' or io_direction is None:
-            self._ref_graph[io_direction].add_edges_from([(rv, name) 
-                                  for rv in self.get_referenced_comps(io_direction='in')])
-        return self._ref_graph[io_direction]
+        #if io_direction == 'in' or io_direction is None:
+            #self._ref_graph[io_direction].add_edges_from([(rv, name) 
+                                  #for rv in self.get_referenced_comps(io_direction='in')])
+        #return self._ref_graph[io_direction]

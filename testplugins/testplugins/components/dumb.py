@@ -10,7 +10,7 @@ class DumbComponent(Component):
         self.svar = 'abcdefg'
         self.version = '0.1'
 
-    def execute(self):
+    def execute(self, required_outputs=None):
         self.fnum += 2.0
         self.inum -= 3
         self.svar = self.svar[::-1]

@@ -419,7 +419,7 @@ the base class Component. A very simple component is shown here:
         	""" Creates a new Transmission object """
         	super(Transmission, self).__init__(doc, directory)        
         
-	    def execute(self):
+	    def execute(self, required_outputs=None):
 	        """ The 5-speed manual transmission is simulated by determining the
 	            torque output and engine RPM via the gear ratios.
 	            """
@@ -531,7 +531,7 @@ the input and output variables to perform a calculation.
 
 .. testcode:: Code2
 
-    def execute(self):
+    def execute(self, required_outputs=None):
         """ The 5-speed manual transmission is simulated by determining the
             torque output and engine RPM via the gear ratios.
             """

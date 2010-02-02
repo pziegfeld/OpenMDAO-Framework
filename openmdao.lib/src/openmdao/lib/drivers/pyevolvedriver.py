@@ -169,7 +169,7 @@ class pyevolvedriver(Driver):
                 "decoder as specified does not have the right signature. Must take only 1 argument: %s"%
                 err, TypeError)
 
-    def execute(self):
+    def execute(self, required_outputs=None):
         """Perform the optimization"""
         self.verify()
         #configure the evaluator function of the genome

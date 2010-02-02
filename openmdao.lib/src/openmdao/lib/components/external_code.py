@@ -70,7 +70,7 @@ class ExternalCode(Component):
 
 # pylint: disable-msg=E1101
 
-    def execute(self):
+    def execute(self, required_outputs=None):
         """ Run command. """
         cmd = self.command
         cmd = os.path.expanduser(cmd)

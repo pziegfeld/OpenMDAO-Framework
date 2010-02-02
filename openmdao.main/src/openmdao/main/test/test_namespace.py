@@ -28,7 +28,7 @@ class SimpleComp(Component):
         self.add_container('cont_in', DumbContainer())
         self.add_container('cont_out', DumbContainer())
     
-    def execute(self):
+    def execute(self, required_outputs=None):
         for name in ['v1', 'v2', 'v3']:
             setattr(self.cont_out, name, 
                     self.mult*getattr(self.cont_in, name))

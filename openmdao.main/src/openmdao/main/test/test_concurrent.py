@@ -11,7 +11,7 @@ import traceback
 from enthought.traits.api import Int, Str, Bool
 from openmdao.main.api import Container, Component, Assembly
 from openmdao.main.exceptions import CircularDependencyError
-from openmdao.main.container import state_strings, VALID
+from openmdao.main.container import state_strings
 
 import unittest
 import logging
@@ -34,7 +34,7 @@ class Sleepy(Component):
         super(Sleepy,self).__init__()
         self.delay = delay
 
-    def execute(self):
+    def execute(self, required_outputs=None):
         """ Delay, then set outputs to sum of inputs. """
         time.sleep(self.delay)
         self.out1 = self.in1 + self.in2
@@ -47,7 +47,7 @@ class Integrator(Sleepy):
     def __init__(self, delay=0):
         super(Integrator,self).__init__(delay=delay)
 
-    def execute(self):
+    def execute(self, required_outputs=None):
         """ Delay, then set outputs to sum/integral of inputs. """
         time.sleep(self.delay)
         self.out1 = self.in1 + self.in2
@@ -66,7 +66,7 @@ class Compressor(Component):
         super(Compressor,self).__init__()
         self.delay = delay
 
-    def execute(self):
+    def execute(self, required_outputs=None):
         """
         Delay, then set outflow to sum of inflow and mymap.
         Set extrapolated True if inflow > mymap.
@@ -87,7 +87,7 @@ class MapGenerator(Component):
         super(MapGenerator, self).__init__()
         self.delay = delay
 
-    def execute(self):
+    def execute(self, required_outputs=None):
         """ delay, then increment map value. """
         logging.debug('             %s running...' % self.name)
         time.sleep(self.delay)
@@ -194,13 +194,18 @@ class TestRig(Assembly):
         if len(self.workflow.dispatch_table) != len(expected_table):
             raise RuntimeError('ERROR: %d states vs. expected %d' %
                     (len(self.workflow.dispatch_table), len(expected_table)))
-        for i, state in enumerate(expected_table):
-            if i >= len(self.workflow.dispatch_table):
-                break
-            actual = sorted(self.workflow.dispatch_table[i])
-            expected = sorted(state)
-            if actual != expected:
-                raise RuntimeError('ERROR: [%d] %s vs. %s' % (i, actual, expected))
+        
+        # when running sequentially for some cases, the exact order of component
+        # execution cannot be predicted, so we can't compare it to an expected
+        # dispatch table.
+        if not self.workflow.sequential:
+            for i, state in enumerate(expected_table):
+                if i >= len(self.workflow.dispatch_table):
+                    break
+                actual = sorted(self.workflow.dispatch_table[i])
+                expected = sorted(state)
+                if actual != expected:
+                    raise RuntimeError('ERROR: [%d] %s vs. %s' % (i, actual, expected))
 
 
 class TestCase(unittest.TestCase):
@@ -256,9 +261,7 @@ class TestCase(unittest.TestCase):
         rig.run('Nothing to do.')
 
         # Step through from beginning.
-        #rig.invalidate()
-        rig.A.in1 = 'a0'
-        rig.A.in1 = 'a1' # set to a different value then back to invalidate dependents
+        rig.invalidate()
         rig.step([['A']])
         rig.step([['A'], ['B', 'C', 'D']])
         rig.step([['A'], ['B', 'C', 'D']])
@@ -266,12 +269,11 @@ class TestCase(unittest.TestCase):
         rig.step([['A'], ['B', 'C', 'D'], ['E']])
         rig.step([['A'], ['B', 'C', 'D'], ['E'], ['F']])
         rig.step([])
-        if rig.state != VALID:
-            print "ERROR: expected rig 'valid', actual '%s'" % rig.state
+        #if not rig._valid:
+            #print "ERROR: expected rig 'valid', actual '%s'" % rig.state
 
         # Re-run sequentially.
-        rig.A.in1 = 'a0'
-        rig.A.in1 = 'a1' # set to a different value then back to invalidate dependents
+        rig.invalidate()
         rig.workflow.sequential = True
         rig.state_table = [
             ['A'],
@@ -384,7 +386,7 @@ class TestCase(unittest.TestCase):
 
         # Remove 'B', causing disconnections.
         rig.remove_container('B')
-        rig.invalidate_deps(['A.out1'])
+        rig.invalidate_dependent_inputs('A',['out1'])
         rig.A.in2 = 'a6'
         rig.C.in2 = 'c4'
         rig.state_table = [

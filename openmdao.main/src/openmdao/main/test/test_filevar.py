@@ -29,7 +29,7 @@ class Source(Component):
     binary_file = FileTrait(path='source.bin', io_direction='out', binary=True,
                             extra_stuff='Hello world!')
 
-    def execute(self):
+    def execute(self, required_outputs=None):
         """ Write test data to files. """
         if self.write_files:
             out = open(self.text_file.path, 'w')
@@ -49,7 +49,7 @@ class Passthrough(Component):
     text_out = FileTrait(path='tout', io_direction='out')
     binary_out = FileTrait(path='bout', io_direction='out', binary=True)
 
-    def execute(self):
+    def execute(self, required_outputs=None):
         """ File copies are performed implicitly. """
         # We have to manually propagate 'extra_stuff' because the output
         # FileRef isn't copied from the input FileRef.
@@ -80,7 +80,7 @@ class Sink(Component):
     text_file = FileTrait(io_direction='in')
     binary_file = FileTrait(io_direction='in')
 
-    def execute(self):
+    def execute(self, required_outputs=None):
         """ Read test data from files. """
         if self.bogus_path:
             self.text_file.path = self.bogus_path
