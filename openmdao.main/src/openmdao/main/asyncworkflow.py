@@ -42,14 +42,13 @@ class AsyncWorkflow(Workflow):
         
         self._comp_graph = nx.DiGraph()
         self._comp_graph.add_nodes_from([BOUNDARY_IN, BOUNDARY_OUT])
-        self._child_io_graphs = {}
         self._verbose = verbose
 
         self.sequential = False
         self.record_states = True
         self.dispatch_table = []
         
-        self._compnames = {}         # iterator of names of components to run.
+        self._comp_info = {}         # dict of names of components and their required outputs. (None==all)
         self._stop = False           # If True, stop evaluation.
         self._active = []            # List of components currently active.
         self._ready_q = []           # List of components ready to run.
@@ -61,7 +60,7 @@ class AsyncWorkflow(Workflow):
         """ Add a new node to the end of the flow. """
         if isinstance(getattr(self.scope, node), Component):
             self._comp_graph.add_node(node)
-            self._child_io_graphs[node] = None
+            self._comp_info[node] = None
         else:
             raise TypeError('%s is not a Component' % 
                             '.'.join((self.scope.get_pathname(),node)))
@@ -72,16 +71,16 @@ class AsyncWorkflow(Workflow):
     def remove_node(self, node):
         """Remove a component from this Workflow and any of its children."""
         self._comp_graph.remove_node(node)
-        del self._child_io_graphs[node]
+        del self._comp_info[node]
 
-    def run(self, compnames=None):
+    def run(self, comp_info=None):
         """
         Execute the given components. `compnames` is a dictionary
         mapping components to required outputs (or None for all).
         """
-        if compnames is None:
-            compnames = self._child_io_graphs.keys()
-        self._setup(compnames)
+        if comp_info is None:
+            comp_info = self._comp_info
+        self._setup(comp_info)
         if not self._ready_q:
             return
         self.resume()
@@ -177,7 +176,7 @@ class AsyncWorkflow(Workflow):
         # At this point all runnable components have been run.
         # Check for failures.
         failures = []
-        for compname in self._compnames:
+        for compname in self._comp_info:
             comp = getattr(self.scope, compname)
             if not comp.ok():
                 failures.append(compname)
@@ -197,17 +196,14 @@ class AsyncWorkflow(Workflow):
         if self.is_active:
             worker, compname, msg, ready = self._done_q.get()
             self._pool.release(worker)
-            print 'in %s:step: removing %s from active list' % (self.scope.name,compname)
             self._active.remove(compname)
             if msg is None:
                 # Note that multiple workers may think that they are
                 # the one that made a dependent component ready.
                 for dependent in ready:
-                    if dependent.name in self._compnames:
-                        if dependent not in self._ready_q:
-                            dependent.set_ready()
-                            print 'in %s:step: adding %s to _ready_q' % (self.scope.name,dependent.name)
-                            self._ready_q.append(dependent)
+                    if dependent.name in self._comp_info and dependent not in self._ready_q:
+                        dependent.set_ready()
+                        self._ready_q.append(dependent)
             else:
                 raise RuntimeError('Component failed: %s' % msg)
         else:
@@ -217,12 +213,11 @@ class AsyncWorkflow(Workflow):
         """ Stop the evaluation (eventually). """
         self._stop = True
 
-    def _setup(self, compnames):
+    def _setup(self, comp_info):
         """ Setup to begin evaluation. 
         Puts all ready components on the ready queue.
         """
-        self._compnames = compnames
-        print 'in %s:_setup: clearing active list. contents were %s' % (self.scope.name,self._active)
+        self._comp_info = comp_info
         self._active = []
         self.dispatch_table = []
 
@@ -236,14 +231,14 @@ class AsyncWorkflow(Workflow):
         # Get components that are ready-to-run, as well as components that will
         # be ready to run as soon as they get some inputs from other components that
         # are already valid
-        comps = [getattr(self.scope, cname) for cname in self._compnames]
-        self._ready_q = []
+        comps = [getattr(self.scope, cname) for cname in self._comp_info]
+        ready_set = set()
         runinfos = [(comp, comp.get_run_info()) for comp in comps]
         for comp, stuff in runinfos:
             ready, outputs = stuff
             if ready:
-                if not comp in self._ready_q:
-                    self._ready_q.append(comp)
+                if not comp in ready_set:
+                    ready_set.add(comp)
             else:
                 for name, val in outputs.items():
                     srcpath = '.'.join((comp.name, name))
@@ -253,11 +248,10 @@ class AsyncWorkflow(Workflow):
                             destcomp = getattr(self.scope, tup[0])
                             if destcomp.get_valid(tup[1]) is False:
                                 destcomp.set(tup[1], val, srcname=srcpath)
-                            if destcomp.is_ready() and destcomp not in self._ready_q:
-                                self._ready_q.append(destcomp)
-                
-        #self._ready_q = [comp for comp in comps if comp.is_ready()]
-        print 'in %s:_setup: comps %s are now ready' % (self.scope.name,[comp.name for comp in comps if comp.is_ready()])
+                            if destcomp.is_ready() and destcomp not in ready_set:
+                                ready_set.add(destcomp)
+        self._ready_q = list(ready_set)
+
         
     def _start(self):
         """ Start all runnable components (unless sequential). """
@@ -268,7 +262,6 @@ class AsyncWorkflow(Workflow):
             comp = self._ready_q.pop(0)
             worker_q.put(comp)
             self._active.append(comp.name)
-            print 'in %s:_start: %s is now active' % (self.scope.name,comp.name)
             launched.append(comp.name)
             if self.sequential:
                 break
@@ -288,8 +281,8 @@ class AsyncWorkflow(Workflow):
             msg = None
             ready = []
             try:
-                # FIXME: put partial execution stuff back later
-                comp.run()
+                req_outs = self._comp_info[comp.name]
+                comp.run(required_outputs=req_outs)
             except Exception, err:
                 msg = traceback.format_exc() + ': ' + str(err)
             else:
@@ -308,8 +301,6 @@ class AsyncWorkflow(Workflow):
                             else: # boundary output
                                 self.scope.set(dest, val, 
                                                srcname=srcpath)
-                                if self._verbose: 
-                                    print 'Transfer %s.%s to %s' % (comp.name, name, dest)
     
                     # Check if updated components are now ready.
                     ready = [ucomp for ucomp in updated if ucomp.is_ready()]

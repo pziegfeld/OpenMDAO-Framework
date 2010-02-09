@@ -384,9 +384,9 @@ class Container(HasTraits):
                 # invalidate our outputs
                 self.invalidate([name])
                 self.set_valid(name, True) # input is valid when set
-                self._valid = False
+                self._valid = False  # container becomes invalid
         else:  # io_direction = 'out'
-            self.set_valid(name, True)
+            #self.set_valid(name, True)
             self._changed_outs.add(name)
 
     # error reporting stuff
@@ -520,11 +520,11 @@ class Container(HasTraits):
 
     def invalidate(self, inputs=None):
         """ Invalidate all linked outputs and inputs connected to them. """
+        self._valid = False
         if not inputs:
             inputs = self.list_inputs(valid=True)
         invalidated = self.list_outputs(valid=True)
         for name in invalidated:
-            print 'Container.invalid: invalidating %s.%s' % (self.name, name)
             self.set_valid(name, False)
         if self.parent and invalidated:
             self.parent.invalidate_dependent_inputs(self.name, invalidated)
@@ -1011,12 +1011,17 @@ class Container(HasTraits):
                 arr = arr[idx]
             return arr
     
-    def get_io_info(self, graph_id):
-        """Return a tuple containing a graph id and a graph connecting our
-        input variables to our output variables. In the case of a simple
-        Container or Component, all input variables are predecessors to all
-        output variables and the io graph never changes.  Returning None as
-        the graph id indicates to the caller that the io graph never changes.
+    def get_io_info(self, graph_id=-999):
+        r"""Return a tuple containing a graph id and a directed graph
+        connecting our input variables to our output variables via a single
+        node representing this container.  For example:
+        
+        input1 --\         /--output1
+        input2 ---container---output2
+        input3 --/
+        
+        Returning None as the graph id indicates to the caller that the io
+        graph never changes.
         """
         if self._io_info[1] is None:
             io_graph = nx.DiGraph()
@@ -1028,10 +1033,12 @@ class Container(HasTraits):
             # add nodes for all of the variables
             io_graph.add_nodes_from(ins)
             io_graph.add_nodes_from(outs)
+            io_graph.add_node(name) # node representing this container
             
-            # specify edges, with all inputs as predecessors to all outputs
-            for invar in ins:
-                io_graph.add_edges_from([(invar, o) for o in outs])
+            # specify edges, with all inputs as predecessors to the container
+            # and all outputs as successors
+            io_graph.add_edges_from([(invar, name) for invar in ins])
+            io_graph.add_edges_from([(name, outvar) for outvar in outs])
         return self._io_info
 
     def replace(self, name, newobj):

@@ -141,7 +141,7 @@ class Component (Container):
         # if we get this far, assume execute worked
         self._execute_succeeded = True
         self._valid = True
-        self.mark_valid_outputs() 
+        self.mark_valid_outputs()
         
     def mark_valid_outputs(self):
         """For a Component that is not an Assembly, all outputs
@@ -173,8 +173,6 @@ class Component (Container):
         self._stop = False
         try:
             self._pre_execute()
-            #if self._call_execute or force:
-            print 'executing %s' % self.get_pathname()
             if __debug__: self._logger.debug('execute %s' % self.get_pathname())
             self.execute(required_outputs=required_outputs)
             self._post_execute()
@@ -707,25 +705,6 @@ class Component (Container):
     def stop (self):
         """Stop this component."""
         self._stop = True
-
-    #def invalidate_deps(self, varnames, notify_parent=False):
-        #"""Invalidate all of our valid outputs.
-        
-        #Returns the names of all newly invalidated outputs.
-        #"""
-        #valid_outs = self.list_outputs(valid=True)
-        
-        #for var in varnames:
-            #self.set_valid(var, False)
-            
-        #if notify_parent and self.parent and valid_outs:
-            #self.parent.invalidate_deps(['.'.join([self.name,n]) for n in valid_outs], 
-                                        #notify_parent)
-        #for out in valid_outs:
-            #self._valid_dict[out] = False
-            
-        #return valid_outs
-
         
 # TODO: uncomment require_gradients and require_hessians after they're better thought out
     

@@ -128,10 +128,11 @@ def display(comp, prefix='', suffix=''):
 
     for name in sorted(inputs.keys()):
         print prefix, name, inputs[name]
+    suffstrs = { True:'valid', False:'invalid' }
     for name in sorted(containers.keys()):
         if isinstance(containers[name], Component):
             comp = containers[name]
-            suffix = state_strings[comp.state] if comp._enabled else 'disabled'
+            suffix = 'disabled' if not comp._enabled else suffstrs[comp._valid]
         else:
             suffix = ''
         display(containers[name], prefix, suffix)

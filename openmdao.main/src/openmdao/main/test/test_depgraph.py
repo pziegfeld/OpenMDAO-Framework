@@ -113,7 +113,7 @@ class DepGraphTestCase(unittest.TestCase):
         self.assertEqual(top.comp1.run_count, 0)
         valids = [top.comp1.get_valid(v) for v in vars]
         # outputs are valid here because they are set in __init__
-        self.assertEqual(valids, [True, True, True, True])
+        self.assertEqual(valids, [True, True, False, False])
         top.run()
         self.assertEqual(top.comp1.run_count, 1)
         self.assertEqual(top.comp1.c, 3)
@@ -152,7 +152,6 @@ class DepGraphTestCase(unittest.TestCase):
     def test_lazy1(self):
         print '***** test_lazy1'
         self.top.run()
-        print '***** test_lazy1: post-run'
         run_counts = [self.top.get(x).run_count for x in allcomps]
         self.assertEqual([1, 1, 1, 1, 1, 1, 1, 1], run_counts)
         outs = [(5,-3),(3,-1),(5,1),(7,3),(4,6),(5,1),(3,-1),(8,6)]
@@ -160,13 +159,10 @@ class DepGraphTestCase(unittest.TestCase):
         for comp in allcomps:
             newouts.append((self.top.get(comp+'.c'),self.top.get(comp+'.d')))
         self.assertEqual(outs, newouts)
-        print '*** pre-run'
         self.top.run()
-        print '** post-run'
         # run_count should stay at 1 for all comps
         self.assertEqual([1, 1, 1, 1, 1, 1, 1, 1], 
                          [self.top.get(x).run_count for x in allcomps])
-        print '**** end test_lazy1 ***'
         
     def test_lazy2(self):
         print '***** test_lazy2'
