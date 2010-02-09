@@ -133,7 +133,6 @@ class Component (Container):
         """Update output variables and anything else needed after execution. 
         Overrides of this function must call this version.
         """
-        # make our output Variables valid again
         self._modified_linked_outputs = [name for name in self._output_links 
                                             if name in self._changed_outs]
         self._changed_outs.clear()
@@ -274,6 +273,13 @@ class Component (Container):
                                  IndexError)
         os.chdir(newdir)
 
+    def get_linked_outputs(self):
+        outdata = {}
+        for name in self._output_links:
+            if self.get_valid(name) and self.get_enabled(name):
+                outdata[name] = getattr(self, name)
+        return outdata
+        
     def get_modified_outputs(self):
         """Return a dict containing names and values of outputs that have been
         invalidated since the last execution.

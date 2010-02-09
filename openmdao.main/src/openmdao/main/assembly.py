@@ -304,7 +304,6 @@ class Assembly (Component):
             self.workflow.connect(srcpath, destpath)
             if destcomp is not self:
                 if srccomp is not self: # neither var is on boundary
-                    #self.workflow.connect(srcpath, destpath)
                     destcomp.invalidate([destvarname])
             destcomp.set_source(destvarname, srcpath)
     
@@ -455,7 +454,10 @@ class Assembly (Component):
             self._update_inputs_from_boundary(self.list_inputs(valid=False))
             nodes = self.workflow.nodes()
         try:
-            self.workflow.step(nodes)
+            if nodes:
+                self.workflow.step(dict([(name,None) for name in nodes]))
+            else:
+                self.workflow.step()
         except StopIteration:
             pass
         

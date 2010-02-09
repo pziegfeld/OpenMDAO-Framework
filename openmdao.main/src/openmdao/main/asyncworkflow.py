@@ -71,15 +71,16 @@ class AsyncWorkflow(Workflow):
     def remove_node(self, node):
         """Remove a component from this Workflow and any of its children."""
         self._comp_graph.remove_node(node)
-        del self._comp_info[node]
+        if node in self._comp_info:
+            del self._comp_info[node]
 
     def run(self, comp_info=None):
         """
-        Execute the given components. `compnames` is a dictionary
+        Execute the given components. `comp_info` is a dictionary
         mapping components to required outputs (or None for all).
         """
         if comp_info is None:
-            comp_info = self._comp_info
+            comp_info = dict([(name,None) for name in self.nodes()])
         self._setup(comp_info)
         if not self._ready_q:
             return
@@ -183,14 +184,14 @@ class AsyncWorkflow(Workflow):
         if failures:
             raise RuntimeError('the following components failed: %s' % failures)
 
-    def step(self, compnames=None):
+    def step(self, comp_info=None):
         """
         If any workers are 'active', process the next one that finishes. If
-        `compnames` is specified, then start a new evaluation.  `compnames` is
+        `comp_info` is specified, then start a new evaluation.  `comp_info` is
         an iterator of names of components to run (or None for all).
         """
-        if compnames:
-            self._setup(compnames)
+        if comp_info:
+            self._setup(comp_info)
 
         self._start()
         if self.is_active:
@@ -272,6 +273,7 @@ class AsyncWorkflow(Workflow):
         """
         Get component, run it, update dependent inputs, and queue results.
         """
+        vargraph, changed = self.scope.get_var_graph()
         while True:
             comp = request_q.get()
             if comp is None:
@@ -288,19 +290,21 @@ class AsyncWorkflow(Workflow):
             else:
                 # Update dependent components.
                 try:
-                    outdata = comp.get_modified_outputs()
+                    outdata = comp.get_linked_outputs()
                     updated = set()
                     for name, val in outdata.items():
                         srcpath = '.'.join((comp.name, name))
-                        for src,dest in self.scope._var_graph.edges(srcpath):
+                        for src,dest in vargraph.edges(srcpath):
                             tup = dest.split('.', 1)
                             if len(tup) == 2:
                                 destcomp = getattr(self.scope, tup[0])
-                                destcomp.set(tup[1], val, srcname=srcpath)
-                                updated.add(destcomp)
+                                if not destcomp.get_valid(tup[1]):
+                                    destcomp.set(tup[1], val, srcname=srcpath)
+                                    updated.add(destcomp)
                             else: # boundary output
-                                self.scope.set(dest, val, 
-                                               srcname=srcpath)
+                                if not self.scope.get_valid(dest):
+                                    self.scope.set(dest, val, 
+                                                   srcname=srcpath)
     
                     # Check if updated components are now ready.
                     ready = [ucomp for ucomp in updated if ucomp.is_ready()]

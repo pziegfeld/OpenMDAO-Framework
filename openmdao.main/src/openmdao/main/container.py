@@ -340,6 +340,10 @@ class Container(HasTraits):
             trait = trait[0]
             
         self._added_traits[name] = trait
+        if trait.io_direction == 'in':
+            self._valid_dict[name] = True
+        elif trait.io_direction == 'out':
+            self._valid_dict[name] = False
         super(Container, self).add_trait(name, trait)
         
     def remove_trait(self, name):
