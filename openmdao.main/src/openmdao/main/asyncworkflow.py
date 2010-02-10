@@ -22,6 +22,21 @@ __all__ = ('AsyncWorkflow',)
 BOUNDARY_IN = '@in'
 BOUNDARY_OUT = '@out'
 
+class PicklableQueue(Queue.Queue):
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        to_remove = ['mutex', 'not_empty', 'not_full', 'all_tasks_done']
+        for name in to_remove:
+            del state[name]
+        return state
+    
+    def __setstate__(self, state):
+        state['mutex'] = threading.Lock()
+        state['not_empty'] = threading.Condition(state['mutex'])
+        state['not_full'] = threading.Condition(state['mutex'])
+        state['all_tasks_done'] = threading.Condition(state['mutex'])
+        self.__dict__ = state
+
 class AsyncWorkflow(Workflow):
     """
     Evaluates components in lazy dataflow fashion.
@@ -52,7 +67,8 @@ class AsyncWorkflow(Workflow):
         self._stop = False           # If True, stop evaluation.
         self._active = []            # List of components currently active.
         self._ready_q = []           # List of components ready to run.
-        self._done_q = Queue.Queue() # Queue of completion info tuples.
+        #self._done_q = Queue.Queue() # Queue of completion info tuples.
+        self._done_q = PicklableQueue() # Queue of completion info tuples.
         self._pool = WorkerPool(self._service_loop) # Pool of worker threads.
         
         
@@ -195,10 +211,10 @@ class AsyncWorkflow(Workflow):
 
         self._start()
         if self.is_active:
-            worker, compname, msg, ready = self._done_q.get()
+            worker, compname, err, trace_str, ready = self._done_q.get()
             self._pool.release(worker)
             self._active.remove(compname)
-            if msg is None:
+            if err is None:
                 # Note that multiple workers may think that they are
                 # the one that made a dependent component ready.
                 for dependent in ready:
@@ -206,7 +222,8 @@ class AsyncWorkflow(Workflow):
                         dependent.set_ready()
                         self._ready_q.append(dependent)
             else:
-                raise RuntimeError('Component failed: %s' % msg)
+                raise err
+                #raise RuntimeError('Component failed: %s' % msg)
         else:
             raise StopIteration
 
@@ -280,13 +297,13 @@ class AsyncWorkflow(Workflow):
                 request_q.task_done()
                 return  # Shutdown.
 
-            msg = None
+            err = trace_str = None
             ready = []
             try:
                 req_outs = self._comp_info[comp.name]
                 comp.run(required_outputs=req_outs)
             except Exception, err:
-                msg = traceback.format_exc() + ': ' + str(err)
+                trace_str = traceback.format_exc()
             else:
                 # Update dependent components.
                 try:
@@ -309,10 +326,10 @@ class AsyncWorkflow(Workflow):
                     # Check if updated components are now ready.
                     ready = [ucomp for ucomp in updated if ucomp.is_ready()]
                 except Exception, err:
-                    msg = traceback.format_exc() + ': ' + str(err)
+                    trace_str = traceback.format_exc()
 
             request_q.task_done()
-            self._done_q.put((request_q, comp.name, msg, ready))
+            self._done_q.put((request_q, comp.name, err, trace_str, ready))
 
 
 class WorkerPool(object):

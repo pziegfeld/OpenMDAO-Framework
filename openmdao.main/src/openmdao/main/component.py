@@ -172,7 +172,7 @@ class Component (Container):
         self._stop = False
         try:
             self._pre_execute()
-            if __debug__: self._logger.debug('execute %s' % self.get_pathname())
+            #if __debug__: self._logger.debug('execute %s' % self.get_pathname())
             self.execute(required_outputs=required_outputs)
             self._post_execute()
         finally:

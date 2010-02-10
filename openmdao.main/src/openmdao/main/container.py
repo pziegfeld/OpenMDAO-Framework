@@ -10,6 +10,7 @@ import copy
 import traceback
 import re
 import pprint
+import thread
 
 import weakref
 # the following is a monkey-patch to correct a problem with
@@ -265,16 +266,17 @@ class Container(HasTraits):
     
     def get_default_name(self, scope):
         """Return a unique name for the given object in the given scope."""
-        classname = self.__class__.__name__.lower()
-        if scope is None:
-            sdict = {}
-        else:
-            sdict = scope.__dict__
-            
+        try:
+            classname = self.__class__.__name__.lower()
+        except:
+            classname = 'unknown'
         ver = 1
-        while '%s%d' % (classname, ver) in sdict:
-            ver += 1
-        return '%s%d' % (classname, ver)
+        if scope is None:
+            return '%s%d' % (classname, ver)
+        else:
+            while '%s%d' % (classname, ver) in scope.__dict__:
+                ver += 1
+            return '%s%d' % (classname, ver)
         
     def get_pathname(self, rel_to_scope=None):
         """ Return full path name to this container, relative to scope
@@ -322,7 +324,7 @@ class Container(HasTraits):
          
         # after unpickling, implicitly defined traits disappear, so we have to
         # recreate them by assigning them to themselves.       
-        #TODO: I'm probably missing something. There has to be a better way to
+        #FIXME: I'm probably missing something. There has to be a better way to
         #      do this...
         for name, val in self.__dict__.items():
             if not self.trait(name) and not name.startswith('__'):

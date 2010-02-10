@@ -17,14 +17,6 @@ from openmdao.main.pkg_res_factory import import_version, PkgResourcesFactory
 class PkgResFactoryTestCase(unittest.TestCase):
     """tester for pkg_res_factory"""
 
-    def setUp(self):
-        """this setup function will be called before each test"""
-        pass        
-
-    def tearDown(self):
-        """this teardown function will be called after each test"""
-        pass
-    
     def test_import_not_found(self):
         """try importing a distrib that doesn't exist"""
         try:

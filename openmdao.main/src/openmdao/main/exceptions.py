@@ -30,6 +30,6 @@ class RunInterrupted(RuntimeError):
 class RunStopped(RuntimeError):
     """Raised when run() was stopped, implying a consistent state but
     not necessarily reflecting input values."""
-    def __init__(self, msg):
+    def __init__(self, msg='Stop requested'):
         super(RunStopped, self).__init__(msg)
 
