@@ -213,7 +213,10 @@ class AsyncWorkflow(Workflow):
         if self.is_active:
             worker, compname, err, trace_str, ready = self._done_q.get()
             self._pool.release(worker)
-            self._active.remove(compname)
+            try:
+                self._active.remove(compname)
+            except ValueError:
+                pass
             if err is None:
                 # Note that multiple workers may think that they are
                 # the one that made a dependent component ready.
@@ -230,6 +233,8 @@ class AsyncWorkflow(Workflow):
     def stop(self):
         """ Stop the evaluation (eventually). """
         self._stop = True
+        for name in self.nodes():
+            getattr(self.scope, name).stop()
 
     def _setup(self, comp_info):
         """ Setup to begin evaluation. 
@@ -265,7 +270,12 @@ class AsyncWorkflow(Workflow):
                         if len(tup) == 2:
                             destcomp = getattr(self.scope, tup[0])
                             if destcomp.get_valid(tup[1]) is False:
-                                destcomp.set(tup[1], val, srcname=srcpath)
+                                try:
+                                    destcomp.set(tup[1], val, srcname=srcpath)
+                                except Exception, err:
+                                    self.scope.raise_exception("cannot set '%s' from '%s': %s" %
+                                                               (dest, srcpath, str(err)),
+                                                               type(err))
                             if destcomp.is_ready() and destcomp not in ready_set:
                                 ready_set.add(destcomp)
         self._ready_q = list(ready_set)
@@ -307,7 +317,7 @@ class AsyncWorkflow(Workflow):
             else:
                 # Update dependent components.
                 try:
-                    outdata = comp.get_linked_outputs()
+                    outdata = comp.get_available_linked_outputs()
                     updated = set()
                     for name, val in outdata.items():
                         srcpath = '.'.join((comp.name, name))
@@ -315,13 +325,20 @@ class AsyncWorkflow(Workflow):
                             tup = dest.split('.', 1)
                             if len(tup) == 2:
                                 destcomp = getattr(self.scope, tup[0])
-                                if not destcomp.get_valid(tup[1]):
-                                    destcomp.set(tup[1], val, srcname=srcpath)
-                                    updated.add(destcomp)
+                                destvar = tup[1]
                             else: # boundary output
-                                if not self.scope.get_valid(dest):
-                                    self.scope.set(dest, val, 
-                                                   srcname=srcpath)
+                                destcomp = self.scope
+                                destvar = tup[0]
+                                
+                            if not destcomp.get_valid(destvar):
+                                try:
+                                    destcomp.set(destvar, val, srcname=srcpath)
+                                except Exception, err:
+                                    self.scope.raise_exception("cannot set '%s' from '%s': %s" %
+                                                               (dest, srcpath, str(err)),
+                                                               type(err))
+                            if destcomp is not self.scope:
+                                updated.add(destcomp)
     
                     # Check if updated components are now ready.
                     ready = [ucomp for ucomp in updated if ucomp.is_ready()]

@@ -273,7 +273,10 @@ class Component (Container):
                                  IndexError)
         os.chdir(newdir)
 
-    def get_linked_outputs(self):
+    def get_available_linked_outputs(self):
+        """Returns a dict of linked outputs and their values.  Only valid,
+        enabled outputs are added to the dict.
+        """
         outdata = {}
         for name in self._output_links:
             if self.get_valid(name) and self.get_enabled(name):

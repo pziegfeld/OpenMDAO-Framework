@@ -73,13 +73,6 @@ class _PassthroughTrait(TraitType):
             return self.validation_trait.validate(obj, name, value)
         return value
 
-class _SrcInfo(object):
-    """Used to store information about what component outputs a given destination
-    is dependent on.
-    """
-    def __init__(self):
-        self.compname = None
-        self.outputs = set()  # set of outputs needed by a particular destination
 
 class Assembly (Component):
     """This is a container of Components. It understands how to connect inputs
@@ -138,13 +131,15 @@ class Assembly (Component):
             # find all pairs of connected nodes
             ins = self.list_inputs()
             outs = self.list_outputs()
+            inpaths = ['.'.join((self.name, name)) for name in ins]
+            outpaths = ['.'.join((self.name, name)) for name in outs]
             io_graph = nx.DiGraph()
-            io_graph.add_nodes_from(ins)
-            io_graph.add_nodes_from(outs)
-            for inp in ins:
-                for out in outs:
+            io_graph.add_nodes_from(inpaths)
+            io_graph.add_nodes_from(outpaths)
+            for inp, inpath in zip(ins, inpaths):
+                for out, outpath in zip(outs, outpaths):
                     if _path_exists(vargraph, inp, out):
-                        io_graph.add_edge(inp, out)
+                        io_graph.add_edge(inpath, outpath)
             self._io_info = (self._io_info[0]+1, io_graph)
     
         if self._io_info[0] != graph_id:
@@ -152,6 +147,30 @@ class Assembly (Component):
         else:
             return (graph_id, None)
     
+    def _get_required_comp_info(self, G, outputs):
+        """Return a dict of component names and their required outputs needed
+        to validate the requested outputs.
+        """
+        neighbors=G.predecessors
+    
+        compnames = set([n for n in self.list_containers() 
+                         if isinstance(getattr(self, n), Component)])
+        compinfos = {}
+        visited = set()
+        stack = []
+        stack.extend(outputs)
+        while stack:
+            v=stack.pop()
+            if v not in visited:
+                visited.add(v)
+                parts = v.split('.', 1)
+                if parts[0] not in compinfos and parts[0] in compnames:
+                    compinfos[parts[0]] = []
+                if len(parts) > 1:
+                    compinfos[parts[0]].append(parts[1])
+                stack.extend(neighbors(v))
+        return compinfos
+
     def add_driver(self, name, obj):
         # FIXME: this is only a temporary fix before moving to driverflow
         if not isinstance(obj, Driver):
@@ -393,19 +412,10 @@ class Assembly (Component):
             if required_outputs is None:
                 self.workflow.run()
             else:
-                compnames = [n for n in self.list_containers() 
-                                if isinstance(getattr(self, n), Component)]
-                comp_info = {}
+                compnames = set([n for n in self.list_containers() 
+                                 if isinstance(getattr(self, n), Component)])
                 vargraph, changed = self.get_var_graph()
-                for out in required_outputs:
-                    preds = nx.dfs_preorder(vargraph, source=out, reverse_graph=True)
-                    for pred in preds:
-                        tup = pred.split('.', 1)
-                        if len(tup) > 1:
-                            if tup[0] in comp_info:
-                                comp_info[tup[0]].append(tup[1])
-                            else:
-                                comp_info[tup[0]] = [tup[1]]
+                comp_info = self._get_required_comp_info(vargraph, required_outputs)
                 self.workflow.run(comp_info)
         self._update_boundary_outputs()
 
@@ -422,7 +432,11 @@ class Assembly (Component):
                 src = inedges[0][0]
                 srcparts = src.split('.', 1)
                 if getattr(self, srcparts[0]).get_valid(srcparts[1]):
-                    setattr(self, out, self.get(src))
+                    try:
+                        setattr(self, out, self.get(src))
+                    except Exception, err:
+                        self.raise_exception("cannot set '%s' with '%s': %s" %
+                                             (out, src, str(err)), type(err))
 
     def _post_execute (self):
         """Update output variables and anything else needed after execution. 
@@ -450,16 +464,17 @@ class Assembly (Component):
     def step(self):
         """ Execute one workflow 'step'. """
         nodes = None
-        if not self.workflow.is_active:
-            self._update_inputs_from_boundary(self.list_inputs(valid=False))
-            nodes = self.workflow.nodes()
-        try:
-            if nodes:
-                self.workflow.step(dict([(name,None) for name in nodes]))
-            else:
+        if self.workflow.is_active:
+            try:
                 self.workflow.step()
-        except StopIteration:
-            pass
+            except StopIteration:
+                pass
+        else:
+            self._update_inputs_from_boundary(self.list_inputs(valid=False))
+            try:
+                self.workflow.step(dict([(name,None) for name in self.workflow.nodes()]))
+            except StopIteration:
+                pass
         
     def stop(self):
         """Stop the workflow."""
@@ -552,7 +567,11 @@ class Assembly (Component):
                 if not dstcomp.get_valid(dstvarname):
                     if self.get_enabled(src):
                         if self.get_valid(src):
-                            self.set(dst_path, getattr(self, src), srcname=src_path)
+                            try:
+                                self.set(dst_path, getattr(self, src), srcname=src_path)
+                            except Exception, err:
+                                self.raise_exception("cannot set '%s' from '%s' : %s" %
+                                                     (dst_path, src, str(err)), type(err))
                     else: # disabled
                         dstcomp.set_enabled(dstvarname, False)
 
