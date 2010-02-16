@@ -70,21 +70,11 @@ class Component (Container):
         self._call_check_config = True
         self._execute_succeeded = True
         self._modified_linked_outputs = [] # which linked outputs were invalid prior to last execution
-        #self._call_execute = True
         if directory:
             self.directory = directory
         
         self._dir_stack = []
 
-    def check_config (self):
-        """Verify that this component is fully configured to execute.
-        This function is called once prior to the first execution of this
-        component, and may be called explicitly at other times if desired. 
-        Classes that override this function must still call the base class
-        version .
-        """
-        super(Component, self).check_config()
-    
     def tree_rooted(self):
         """Calls the base class version of tree_rooted(), checks our
         directory for validity, and creates the directory if it doesn't exist.
@@ -173,6 +163,7 @@ class Component (Container):
         try:
             self._pre_execute()
             #if __debug__: self._logger.debug('execute %s' % self.get_pathname())
+            #print 'execute %s' % self.get_pathname()
             self.execute(required_outputs=required_outputs)
             self._post_execute()
         finally:
@@ -280,7 +271,7 @@ class Component (Container):
         outdata = {}
         for name in self._output_links:
             if self.get_valid(name) and self.get_enabled(name):
-                outdata[name] = getattr(self, name)
+                outdata[name] = self.get_wrapped_attr(name)
         return outdata
         
     def get_modified_outputs(self):
@@ -292,7 +283,7 @@ class Component (Container):
         outdata = {}
         for name in self._modified_linked_outputs:
             if self.get_valid(name) and self.get_enabled(name):
-                outdata[name] = getattr(self, name)
+                outdata[name] = self.get_wrapped_attr(name)
         return outdata
     
     def checkpoint (self, outstream, fmt=SAVE_CPICKLE):

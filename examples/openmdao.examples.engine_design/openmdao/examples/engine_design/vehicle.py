@@ -133,6 +133,8 @@ class Vehicle(Assembly):
         self.connect('transmission.torque_ratio','chassis.torque_ratio')
         self.connect('engine.torque','chassis.engine_torque')
         self.connect('engine.engine_weight','chassis.mass_engine')
+        
+        self.workflow.sequential = True
 
 
         

@@ -180,7 +180,7 @@ class AsyncWorkflow(Workflow):
             raise RuntimeError('Run already complete')
 
         # Process results until all activity is complete.
-        self._start()
+        self._start_ready_comps()
         self._stop = False
         while self.is_active:
             if self._stop:
@@ -209,7 +209,7 @@ class AsyncWorkflow(Workflow):
         if comp_info:
             self._setup(comp_info)
 
-        self._start()
+        self._start_ready_comps()
         if self.is_active:
             worker, compname, err, trace_str, ready = self._done_q.get()
             self._pool.release(worker)
@@ -271,6 +271,7 @@ class AsyncWorkflow(Workflow):
                             destcomp = getattr(self.scope, tup[0])
                             if destcomp.get_valid(tup[1]) is False:
                                 try:
+                                    #print '%s: Transfer %s to %s (%s)' % (self.scope.name,srcpath,dest,val)
                                     destcomp.set(tup[1], val, srcname=srcpath)
                                 except Exception, err:
                                     self.scope.raise_exception("cannot set '%s' from '%s': %s" %
@@ -281,7 +282,7 @@ class AsyncWorkflow(Workflow):
         self._ready_q = list(ready_set)
 
         
-    def _start(self):
+    def _start_ready_comps(self):
         """ Start all runnable components (unless sequential). """
         launched = []
         while self._ready_q:
@@ -332,6 +333,7 @@ class AsyncWorkflow(Workflow):
                                 
                             if not destcomp.get_valid(destvar):
                                 try:
+                                    #print '%s: Transfer %s to %s (%s)' % (self.scope.name,srcpath,dest,val)
                                     destcomp.set(destvar, val, srcname=srcpath)
                                 except Exception, err:
                                     self.scope.raise_exception("cannot set '%s' from '%s': %s" %

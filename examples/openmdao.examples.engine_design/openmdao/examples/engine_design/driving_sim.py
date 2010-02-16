@@ -95,6 +95,7 @@ class DrivingSim(Assembly):
         
     def execute(self, required_outputs=None):
         """ Simulate the vehicle model at full throttle."""
+        #print '%s.execute()' % self.get_pathname()
         #--------------------------------------------------------------------
         # Simulate acceleration time from 0 to end_speed
         #--------------------------------------------------------------------

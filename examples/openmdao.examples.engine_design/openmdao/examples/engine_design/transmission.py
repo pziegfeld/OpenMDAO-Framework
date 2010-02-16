@@ -14,6 +14,8 @@ class Transmission(Component):
     
     # set up interface to the framework  
     # Pylint: disable-msg=E1101
+    
+    # Design parameters
     ratio1 = Float(3.54, io_direction='in', 
                    desc='Gear ratio in First Gear')
     ratio2 = Float(2.13, io_direction='in', 
@@ -29,40 +31,18 @@ class Transmission(Component):
     tire_circ = UnitsFloat(75.0, io_direction='in', units='inch', 
                            desc='Circumference of tire (inches)')
 
+    # Simulation inputs
     current_gear = Int(0, io_direction='in', desc='Current Gear')
     velocity = UnitsFloat(0., io_direction='in', units='mi/h',
                      desc='Current Velocity of Vehicle')
 
+    # Outputs
     RPM = UnitsFloat(1000., io_direction='out', units='1/min',
                      desc='Engine RPM')        
     torque_ratio = Float(0., io_direction='out',
                          desc='Ratio of output torque to engine torque')        
 
-    #def __init__(self, doc=None, directory=''):
-        #""" Creates a new Transmission object
-        
-            ## Design parameters
-            #ratio1              # Gear ratio in First Gear
-            #ratio2              # Gear ratio in Second Gear
-            #ratio3              # Gear ratio in Third Gear
-            #ratio4              # Gear ratio in Fourth Gear
-            #ratio5              # Gear ratio in Fifth Gear
-            #final_drive_ratio   # Final Drive Ratio
-            #tire_circumference  # Circumference of tire (inches)
-            
-            ## Simulation inputs
-            #current_gear        # Gear Position
-            #velocity            # Vehicle velocity needed to determine engine
-                                  #RPM (m/s)
-            
-            ## Outputs
-            #torque_ratio        # Ratio of output torque to engine torque
-            #RPM                 # RPM of the engine
-            #"""
-        
-        #super(Transmission, self).__init__(doc, directory)        
-        
-        
+
     def execute(self, required_outputs=None):
         """ The 5-speed manual transmission is simulated by determining the
             torque output and engine RPM via the gear ratios.

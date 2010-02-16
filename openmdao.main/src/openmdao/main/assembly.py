@@ -315,7 +315,7 @@ class Assembly (Component):
                                  RuntimeError)             
         
         # test compatability (raises TraitError on failure)
-        srcval = getattr(srccomp, srcvarname)
+        srcval = srccomp.get_wrapped_attr(srcvarname)
         if desttrait.validate is not None:
             desttrait.validate(destcomp, destvarname, srcval)
         
@@ -433,6 +433,7 @@ class Assembly (Component):
                 srcparts = src.split('.', 1)
                 if getattr(self, srcparts[0]).get_valid(srcparts[1]):
                     try:
+                        #print '%s: Transfer--> %s to %s (%s)' % (self.name,src,out,self.get(src))
                         setattr(self, out, self.get(src))
                     except Exception, err:
                         self.raise_exception("cannot set '%s' with '%s': %s" %
@@ -568,7 +569,8 @@ class Assembly (Component):
                     if self.get_enabled(src):
                         if self.get_valid(src):
                             try:
-                                self.set(dst_path, getattr(self, src), srcname=src_path)
+                                #print '%s: -->Transfer %s to %s (%s)' % (self.name,src_path, dst_path,getattr(self,src))
+                                self.set(dst_path, self.get_wrapped_attr(src), srcname=src_path)
                             except Exception, err:
                                 self.raise_exception("cannot set '%s' from '%s' : %s" %
                                                      (dst_path, src, str(err)), type(err))

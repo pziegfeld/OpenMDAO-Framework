@@ -60,6 +60,7 @@ class Chassis(Component):
     def execute(self, required_outputs=None):
         """ Calculates the instantaneous acceleration for the vehicle.       
             """        
+        #print '%s.execute()' % self.get_pathname()
         torque = self.engine_torque*self.torque_ratio
         tire_radius = self.tire_circ/(2.0*pi)
         

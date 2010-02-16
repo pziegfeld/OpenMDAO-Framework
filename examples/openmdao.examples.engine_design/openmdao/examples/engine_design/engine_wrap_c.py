@@ -106,6 +106,7 @@ class Engine(Component):
             Power and Torque are returned at the engine output.
             """
 
+        #print '%s.execute()' % self.get_pathname()
         # These Constants are all hard-coded for Gasoline.
         # Eventually, we'll move them to the input so that they can be tweaked.
         # (Possibly by just selecting a fuel-type)
