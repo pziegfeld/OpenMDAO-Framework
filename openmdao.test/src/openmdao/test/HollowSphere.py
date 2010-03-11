@@ -6,13 +6,13 @@ from math import pi
 class HollowSphere(Component):
 
     # set up interface to the framework
-    radius       = UnitsFloat(1.0,  io_direction='in', units='cm')
-    thickness    = UnitsFloat(0.05, io_direction='in', units='cm')
+    radius       = UnitsFloat(1.0,  iotype='in', units='cm')
+    thickness    = UnitsFloat(0.05, iotype='in', units='cm')
         
-    inner_volume = UnitsFloat(0., io_direction='out', units='cm**3')
-    volume       = UnitsFloat(0., io_direction='out', units='cm**3')
-    solid_volume = UnitsFloat(0., io_direction='out', units='cm**3')
-    surface_area = UnitsFloat(0., io_direction='out', units='cm**2')
+    inner_volume = UnitsFloat(0., iotype='out', units='cm**3')
+    volume       = UnitsFloat(0., iotype='out', units='cm**3')
+    solid_volume = UnitsFloat(0., iotype='out', units='cm**3')
+    surface_area = UnitsFloat(0., iotype='out', units='cm**2')
 
     def __init__(self, doc=None, directory=''):
         super(HollowSphere, self).__init__(doc, directory) 

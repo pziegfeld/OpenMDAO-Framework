@@ -18,9 +18,9 @@ class TestComponent(Component):
     and can request that the run be stopped.
     """
 
-    dummy_input = Int(0, io_direction='in')
-    set_stop = Bool(False, io_direction='in')
-    total_executions = Int(0, io_direction='out')
+    dummy_input = Int(0, iotype='in')
+    set_stop = Bool(False, iotype='in')
+    total_executions = Int(0, iotype='out')
 
     def execute(self, required_outputs=None):
         self.total_executions += 1

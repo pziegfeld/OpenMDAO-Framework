@@ -277,7 +277,7 @@ class AsyncWorkflow(Workflow):
                                     self.scope.raise_exception("cannot set '%s' from '%s': %s" %
                                                                (dest, srcpath, str(err)),
                                                                type(err))
-                            if destcomp.is_ready() and destcomp not in ready_set:
+                            if destcomp.is_ready():
                                 ready_set.add(destcomp)
         self._ready_q = list(ready_set)
 
@@ -301,7 +301,7 @@ class AsyncWorkflow(Workflow):
         """
         Get component, run it, update dependent inputs, and queue results.
         """
-        vargraph, changed = self.scope.get_var_graph()
+        vargraph = self.scope.get_var_graph()
         while True:
             comp = request_q.get()
             if comp is None:

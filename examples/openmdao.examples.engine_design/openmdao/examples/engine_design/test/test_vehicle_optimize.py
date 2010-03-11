@@ -4,6 +4,7 @@
 
 import unittest
 
+from openmdao.main.api import set_as_top
 from openmdao.examples.engine_design.engine_optimization import EngineOptimization
 
 
@@ -11,7 +12,7 @@ class EngineOptimizationTestCase(unittest.TestCase):
     """ Test Vehicle """
 
     def setUp(self):
-        self.model = EngineOptimization()
+        self.model = set_as_top(EngineOptimization())
 
     def tearDown(self):
         self.model.pre_delete()

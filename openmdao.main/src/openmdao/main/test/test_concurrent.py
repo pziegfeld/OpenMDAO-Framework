@@ -26,9 +26,9 @@ VERBOSE = True
 class Sleepy(Component):
     """ Set each output to sum of inputs. """
 
-    in1 = Str(io_direction='in')
-    in2 = Str(io_direction='in')
-    out1 = Str(io_direction='out')
+    in1 = Str(iotype='in')
+    in2 = Str(iotype='in')
+    out1 = Str(iotype='out')
     
     def __init__(self, delay=0):
         super(Sleepy,self).__init__()
@@ -42,7 +42,7 @@ class Sleepy(Component):
 class Integrator(Sleepy):
     """ Sum outputs from each run. """
 
-    integral = Str(io_direction='out')
+    integral = Str(iotype='out')
     
     def __init__(self, delay=0):
         super(Integrator,self).__init__(delay=delay)
@@ -57,10 +57,10 @@ class Integrator(Sleepy):
 class Compressor(Component):
     """ Set 'extrapolated' output if inflow > map. """
 
-    inflow = Int(io_direction='in')
-    mymap = Int(io_direction='in')
-    outflow = Int(io_direction='out')
-    extrapolated = Bool(io_direction='out')
+    inflow = Int(iotype='in')
+    mymap = Int(iotype='in')
+    outflow = Int(iotype='out')
+    extrapolated = Bool(iotype='out')
     
     def __init__(self, delay=0):
         super(Compressor,self).__init__()
@@ -80,8 +80,8 @@ class Compressor(Component):
 class MapGenerator(Component):
     """ Generate a 'updated map' by incrementing previous value. """
 
-    inflow = Int(io_direction='in')
-    mymap = Int(1, io_direction='out')
+    inflow = Int(iotype='in')
+    mymap = Int(1, iotype='out')
     
     def __init__(self, delay=0):
         super(MapGenerator, self).__init__()
@@ -115,11 +115,11 @@ def display(comp, prefix='', suffix=''):
     for attr,obj in comp.items():
         if attr != 'parent':
             tattr = comp.trait(attr)
-            if tattr.io_direction == 'in':
+            if tattr.iotype == 'in':
                 inputs[attr] = (obj, 
                                 '' if comp.get_valid(attr) else 'invalid',
                                 '' if comp.get_enabled(attr) else 'disabled')
-            elif tattr.io_direction == 'out':
+            elif tattr.iotype == 'out':
                 outputs[attr] = (obj, 
                                 '' if comp.get_valid(attr) else 'invalid',
                                 '' if comp.get_enabled(attr) else 'disabled')
@@ -380,7 +380,6 @@ class TestCase(unittest.TestCase):
             ['A'],
         ]
         rig.data_table = [
-            #['B.out1', '(a1a5b3, valid-linked)'],
             ['B.out1', '(a1a5b3, valid)'],
         ]
         rig.run('Specify B.run, auto-run predecessor', rig.B)
@@ -982,98 +981,97 @@ class TestCase(unittest.TestCase):
         #rig.run()
 
 
-    #def test_subassembly(self):
-        #"""
-              #Subassembly:
-                  #S.......
-               #A -+-- C -+- E
-                  #. X    .
-               #B -+-- D -+- F
-                  #........
-              #"""
-        #state_table = [
-            #['A', 'B'],
-            #['S'],
-            #['E', 'F']
-        #]
-        #data_table = [
-            #['A.out1', '(a1a2, valid-linked)'],
-            #['B.out1', '(b1b2, valid-linked)'],
-            #['S.C.out1', '(a1a2b1b2, valid-linked)'],
-            #['S.D.out1', '(a1a2b1b2, valid-linked)'],
-            #['E.out1', '(a1a2b1b2e2, valid)'],
-            #['F.out1', '(a1a2b1b2f2, valid)'],
-        #]
-        #rig = TestRig(state_table, data_table)
-        #rig.name = 'TestRig'
+    def test_subassembly(self):
+        """
+              Subassembly:
+                  S.......
+               A -+-- C -+- E
+                  . X    .
+               B -+-- D -+- F
+                  ........
+              """
+        state_table = [
+            ['A', 'B'],
+            ['S'],
+            ['E', 'F']
+        ]
+        data_table = [
+            ['A.out1', '(a1a2, valid)'],
+            ['B.out1', '(b1b2, valid)'],
+            ['S.C.out1', '(a1a2b1b2, valid)'],
+            ['S.D.out1', '(a1a2b1b2, valid)'],
+            ['E.out1', '(a1a2b1b2e2, valid)'],
+            ['F.out1', '(a1a2b1b2f2, valid)'],
+        ]
+        rig = TestRig(state_table, data_table)
+        rig.name = 'TestRig'
 
-        #A = Sleepy('A', rig)
-        #A.set('in1', 'a1')
-        #A.set('in2', 'a2')
+        A = rig.add_container('A', Sleepy())
+        A.in1 = 'a1'
+        A.in2 = 'a2'
 
-        #B = Sleepy('B', rig)
-        #B.set('in1', 'b1')
-        #B.set('in2', 'b2')
+        B = rig.add_container('B', Sleepy())
+        B.in1 = 'b1'
+        B.in2 = 'b2'
 
-        #S = Assembly('S', rig)
-        #Int('in1', S, 'in')
-        #Int('in2', S, 'in')
-        #Int('out1', S, 'out')
-        #Int('out2', S, 'out')
+        S = rig.add_container('S', Assembly())
+        S.add_trait('in1', Str(iotype='in'))
+        S.add_trait('in2', Str(iotype='in'))
+        S.add_trait('out1', Str(iotype='out'))
+        S.add_trait('out2', Str(iotype='out'))
 
-        #C = Sleepy('C', S)
+        S.add_container('C', Sleepy())
+        S.add_container('D', Sleepy())
 
-        #D = Sleepy('D', S)
+        E = rig.add_container('E', Sleepy())
+        E.in2 = 'e2'
 
-        #E = Sleepy('E', rig)
-        #E.set('in2', 'e2')
+        F = rig.add_container('F', Sleepy())
+        F.in2 = 'f2'
 
-        #F = Sleepy('F', rig)
-        #F.set('in2', 'f2')
+        rig.connect('A.out1', 'S.in1')
+        rig.connect('B.out1', 'S.in2')
+        S.connect('in1', 'C.in1')
+        S.connect('in2', 'C.in2')
+        S.connect('in1', 'D.in1')
+        S.connect('in2', 'D.in2')
+        S.connect('C.out1', 'out1')
+        S.connect('D.out1', 'out2')
+        rig.connect('S.out1', 'E.in1')
+        rig.connect('S.out2', 'F.in1')
 
-        #rig.connect('A.out1', 'S.in1')
-        #rig.connect('B.out1', 'S.in2')
-        #S.connect('in1', 'C.in1')
-        #S.connect('in2', 'C.in2')
-        #S.connect('in1', 'D.in1')
-        #S.connect('in2', 'D.in2')
-        #S.connect('C.out1', 'out1')
-        #S.connect('D.out1', 'out2')
-        #rig.connect('S.out1', 'E.in1')
-        #rig.connect('S.out2', 'F.in1')
+        rig.run()
 
-        #rig.run()
+        # Run E, which should require A and C (not B, D, or F).
+        A.in2 = 'a3'
+        rig.state_table = [
+            ['A'],
+            ['S'],
+        ]
+        rig.data_table = [
+            ['A.out1', '(a1a3, valid)'],
+            ['B.out1', '(b1b2, valid)'],
+            ['S.C.out1', '(a1a3b1b2, valid)'],
+            ['S.D.out1', '(a1a2b1b2, invalid)'],
+            ['E.out1', '(a1a3b1b2e2, valid)'],
+            ['F.out1', '(a1a2b1b2f2, invalid)'],
+        ]
+        rig.run('Run E and necessary predecessors', E)
 
-        ## Run E, which should require A and C (not B, D, or F).
-        #A.set('in2', 'a3')
-        #rig.state_table = [
-            #['A'],
-            #['S'],
-        #]
-        #rig.data_table = [
-            #['A.out1', '(a1a3, valid-linked)'],
-            #['B.out1', '(b1b2, valid-linked)'],
-            #['S.C.out1', '(a1a3b1b2, valid-linked)'],
-            #['S.D.out1', '(a1a2b1b2, invalid-linked)'],
-            #['E.out1', '(a1a3b1b2e2, valid)'],
-            #['F.out1', '(a1a2b1b2f2, invalid)'],
-        #]
-        #rig.run('Run E and necessary predecessors', E)
-
-        ## Run D, which should require B (not A, C, E, or F).
-        #B.set('in2', 'b3')
-        #rig.state_table = [
-            #['B'],
-        #]
-        #rig.data_table = [
-            #['A.out1', '(a1a3, valid-linked)'],
-            #['B.out1', '(b1b3, valid-linked)'],
-            #['S.C.out1', '(a1a3b1b2, invalid-linked)'],
-            #['S.D.out1', '(a1a3b1b3, valid-linked)'],
-            #['E.out1', '(a1a3b1b2e2, invalid)'],
-            #['F.out1', '(a1a2b1b2f2, invalid)'],
-        #]
-        #rig.run('Run D and necessary predecessors', D)
+        # Run D, which should require B (not A, C, E, or F).
+        B.in2 = 'b3'
+        rig.state_table = [
+            ['B'],
+        ]
+        rig.data_table = [
+            ['A.out1', '(a1a3, valid)'],
+            ['B.out1', '(b1b3, valid)'],
+            ['S.C.out1', '(a1a3b1b2, invalid)'],
+            ['S.D.out1', '(a1a3b1b3, valid)'],
+            ['E.out1', '(a1a3b1b2e2, invalid)'],
+            ['F.out1', '(a1a2b1b2f2, invalid)'],
+        ]
+        rig.run('Run D and necessary predecessors', S.D)
 
 
     #def test_input_selection(self):

@@ -94,40 +94,37 @@ class Assembly (Component):
         
         # add any Variables we may have inherited from our base classes
         # to our _var_graph.
-        for v in self.keys(io_direction=not_none):
+        for v in self.keys(iotype=not_none):
             self._var_graph.add_node(v)
         
         self.workflow = AsyncWorkflow(scope=self)
         
     def get_var_graph(self):
-        """Returns a tuple of the form (graph, changed), where graph is 
-        the Variable dependency graph and changed is a boolean indicating
-        whether the graph has changed since it was last retrieved.
-        """
+        """Returns the Variable dependency graph."""
         vargraph = self._var_graph
         childioinfos = self._child_io_infos
-        changed = False if self._io_info[1] is not None else True
         for childname, tup in childioinfos.items():
             old_id, old_graph = tup
             if old_id is None and old_graph is not None: # component io graph never changes
                 continue                                 # so no need to query it again
             new_id, new_graph = getattr(self, childname).get_io_info(old_id)
             if new_graph: # graph has changed
-                changed = True
+                self._io_info = (self._io_info[0], None)
                 if old_graph is not None:  # remove old stuff
                     vargraph.remove_nodes_from(old_graph)
                 childioinfos[childname] = (new_id, new_graph.copy())
                 vargraph.add_nodes_from(new_graph.nodes_iter())
                 vargraph.add_edges_from(new_graph.edges_iter())
-        return (vargraph, changed)
+        return vargraph
 
     
     def get_io_info(self, graph_id=-999):
         """Return a graph connecting our input variables to our output
         variables.
         """
-        vargraph, changed = self.get_var_graph()
-        if changed: # need to build a new io graph
+        vargraph = self.get_var_graph() # this will remove the old io graph
+                                        # if the var graph has changed
+        if self._io_info[1] is None: # need to build a new io graph
             # find all pairs of connected nodes
             ins = self.list_inputs()
             outs = self.list_outputs()
@@ -240,7 +237,7 @@ class Assembly (Component):
         if not trait:
             self.raise_exception("the trait named '%s' can't be found" %
                                  pathname, TraitError)
-        io_direction = trait.io_direction
+        iotype = trait.iotype
         # the trait.trait_type stuff below is for the case where the trait is actually
         # a ctrait (very common). In that case, trait_type is the actual underlying
         # trait object
@@ -248,28 +245,29 @@ class Assembly (Component):
             getattr(trait.trait_type, 'get') or getattr(trait.trait_type,'set')):
             trait = None  # not sure how to validate using a property
                           # trait without setting it, so just don't use it
-        newtrait = _PassthroughTrait(io_direction=io_direction, validation_trait=trait)
+        newtrait = _PassthroughTrait(iotype=iotype, validation_trait=trait)
         self.add_trait(newname, newtrait)
+
         setattr(self, newname, val)
 
-        if io_direction == 'in':
+        if iotype == 'in':
             self.connect(newname, pathname)
         else:
             self.connect(pathname, newname)
 
         return newtrait
 
-    def get_dyn_trait(self, pathname, io_direction=None):
+    def get_dyn_trait(self, pathname, iotype=None):
         """Retrieves the named trait, attempting to create a Passthrough trait
         on-the-fly if the specified trait doesn't exist.
         """
         trait = self.trait(pathname)
         if trait is None:
             newtrait = self.create_passthrough(pathname)
-            if io_direction is not None and io_direction != newtrait.io_direction:
+            if iotype is not None and iotype != newtrait.iotype:
                 self.raise_exception(
-                    "new trait has io_direction of '%s' but '%s' was expected" %
-                    (newtrait.io_direction, io_direction), TraitError)
+                    "new trait has iotype of '%s' but '%s' was expected" %
+                    (newtrait.iotype, iotype), TraitError)
         return trait
 
     def _split_varpath(self, path):
@@ -299,12 +297,12 @@ class Assembly (Component):
                                  (srcpath, destpath), RuntimeError)
         if srccomp is not self and destcomp is not self:
             # it's not a passthrough, so must connect input to output
-            if srctrait.io_direction != 'out':
+            if srctrait.iotype != 'out':
                 self.raise_exception(
                     '.'.join([srccomp.get_pathname(),srcvarname])+
                     ' must be an output variable',
                     RuntimeError)
-            if desttrait.io_direction != 'in':
+            if desttrait.iotype != 'in':
                 self.raise_exception(
                     '.'.join([destcomp.get_pathname(),destvarname])+
                     ' must be an input variable',
@@ -331,21 +329,19 @@ class Assembly (Component):
             
             self._var_graph.add_edge(srcpath, destpath)
             
-            src_valid = srccomp.get_valid(srcvarname)
-            dest_valid = destcomp.get_valid(destvarname)
-                
-            # invalidate destvar if necessary
-            if destcomp is self and desttrait.io_direction == 'out': # boundary output
-                if dest_valid:
-                    if self.parent:
-                        # tell the parent that anyone connected to our boundary
-                        # output is invalid.
-                        # Note that it's a dest var in this scope, but a src var in
-                        # the parent scope.
-                        self.parent.invalidate_dependent_inputs(self.name, [destpath])
-                    self.set_valid(destpath, False)
-            else:
-                destcomp.set_valid(destvarname, False)
+            with destcomp._lock:
+                # invalidate destvar if necessary
+                if destcomp is self and desttrait.iotype == 'out': # boundary output
+                    if destcomp.get_valid(destvarname):
+                        if self.parent:
+                            # tell the parent that anyone connected to our boundary
+                            # output is invalid.
+                            # Note that it's a dest var in this scope, but a src var in
+                            # the parent scope.
+                            self.parent.invalidate_dependent_inputs(self.name, [destpath])
+                        self.set_valid(destpath, False)
+                else:
+                    destcomp.set_valid(destvarname, False)
         finally:
             self._io_info = (self._io_info[0], None)  # io graph has changed
         
@@ -414,7 +410,7 @@ class Assembly (Component):
             else:
                 compnames = set([n for n in self.list_containers() 
                                  if isinstance(getattr(self, n), Component)])
-                vargraph, changed = self.get_var_graph()
+                vargraph = self.get_var_graph()
                 comp_info = self._get_required_comp_info(vargraph, required_outputs)
                 self.workflow.run(comp_info)
         self._update_boundary_outputs()
@@ -425,7 +421,7 @@ class Assembly (Component):
         inputs valid.
         """
         invalid_outs = self.list_outputs(valid=False)
-        vgraph, changed = self.get_var_graph()
+        vgraph = self.get_var_graph()
         for out in invalid_outs:
             inedges = vgraph.in_edges(nbunch=out)
             if inedges:
@@ -487,7 +483,7 @@ class Assembly (Component):
     def list_connections(self, show_passthrough=True):
         """Return a list of tuples of the form (outvarname, invarname).
         """
-        vargraph, changed = self.get_var_graph()
+        vargraph = self.get_var_graph()
         if show_passthrough:
             return _filter_internal_edges(vargraph.edges())
         else:
@@ -507,7 +503,7 @@ class Assembly (Component):
         any outputs those inputs depend on must be made valid (if necessary)
         and transferred to those inputs.
         """
-        vargraph, changed = self.get_var_graph()
+        vargraph = self.get_var_graph()
         trace_inputs = [(compname, inputs)]
         need_valid = set()
         comp_infos = {}  # comp name dict with required outputs as data
@@ -555,7 +551,7 @@ class Assembly (Component):
 
     def _update_inputs_from_boundary(self, inputs):
         """ Transfer boundary inputs to internal destinations. """
-        vargraph, changed = self.get_var_graph()
+        vargraph = self.get_var_graph()
         for src in inputs:
             for src_path, dst_path in vargraph.edges(src):
                 try:
@@ -574,6 +570,9 @@ class Assembly (Component):
                             except Exception, err:
                                 self.raise_exception("cannot set '%s' from '%s' : %s" %
                                                      (dst_path, src, str(err)), type(err))
+                        else:
+                            self.raise_exception("input variable %s is not valid!" % src,
+                                                 RuntimeError)
                     else: # disabled
                         dstcomp.set_enabled(dstvarname, False)
 
@@ -615,7 +614,7 @@ class Assembly (Component):
     def invalidate_dependent_inputs(self, comp_name, sources):
         """ Invalidate inputs connected to now-invalid outputs. """
         invalidated = []
-        vargraph, changed = self.get_var_graph()
+        vargraph = self.get_var_graph()
         for source in sources:
             if comp_name:
                 edges = vargraph.edges('.'.join((comp_name, source)))
@@ -646,7 +645,7 @@ class Assembly (Component):
     def disable_dependent_inputs(self, comp_name, outputs):
         """ Disable inputs connected to now-disabled outputs. """
         disabled = []
-        vargraph, changed = self.get_var_graph()
+        vargraph = self.get_var_graph()
         for source in outputs:
             for src, dest in vargraph.edges('.'.join((comp_name, source))):
                 destparts = dest.split('.', 1)

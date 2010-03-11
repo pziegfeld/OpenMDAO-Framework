@@ -60,10 +60,10 @@ The Python code for the Paraboloid component is as follows:
         """ Evaluates the equation (x-3)^2 + xy + (y+4)^2 = 3 """
     
 	# set up interface to the framework  
-	x = Float(0.0, io_direction='in', desc='The variable y')
-        y = Float(0.0, io_direction='in', desc='The variable x')
+	x = Float(0.0, iotype='in', desc='The variable y')
+        y = Float(0.0, iotype='in', desc='The variable x')
 
-        f_xy = Float(0.0, io_direction='out', desc='F(x,y)')        
+        f_xy = Float(0.0, iotype='out', desc='F(x,y)')        
 
         
 	def execute(self, required_outputs=None):
@@ -133,10 +133,10 @@ by adding these lines:
 .. testcode:: simple_component_Paraboloid_pieces
 
 	# set up interface to the framework  
-	x = Float(0.0, io_direction='in', desc='The variable y')
-        y = Float(0.0, io_direction='in', desc='The variable x')
+	x = Float(0.0, iotype='in', desc='The variable y')
+        y = Float(0.0, iotype='in', desc='The variable x')
 
-        f_xy = Float(0.0, io_direction='out', desc='F(x,y)')  
+        f_xy = Float(0.0, iotype='out', desc='F(x,y)')  
 	
 OpenMDAO implements framework variables using a Python add-on called :term:`Traits`.
 This is an open-source extension to Python that was put out by a company called
@@ -147,7 +147,7 @@ minima and maxima, and a way to create callback functions.
 
 Here we are using a trait called *Float,* which was imported above, that creates
 a floating point variable available to the framework. The constructor contains
-a default value (set to 0 for these), an io_direction (which declares this 
+a default value (set to 0 for these), an iotype (which declares this 
 variable as an input or an output), and a description (just a string of text
 that describes this variable -- this will be more useful in the GUI.) For the
 Paraboloid component, we've created two inputs and one output. Note that the two

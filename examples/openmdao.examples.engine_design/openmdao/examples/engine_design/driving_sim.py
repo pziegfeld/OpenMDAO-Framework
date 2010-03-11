@@ -32,17 +32,17 @@ class DrivingSim(Assembly):
     """ Simulation of vehicle performance."""
     
     # Simulation Parameters
-    end_speed = UnitsFloat(60.0, io_direction='in', units='m/h',
+    end_speed = UnitsFloat(60.0, iotype='in', units='m/h',
                            desc='Simulation final speed')
-    timestep = UnitsFloat(0.1, io_direction='in', units='s', 
+    timestep = UnitsFloat(0.1, iotype='in', units='s', 
                           desc='Simulation final speed')
     
     # Outputs
-    accel_time = UnitsFloat(0., io_direction='out', units='s', 
+    accel_time = UnitsFloat(0., iotype='out', units='s', 
                             desc='Time to reach Endspeed starting from rest')
-    EPA_city = UnitsFloat(0., io_direction='out', units='mi/galUS', 
+    EPA_city = UnitsFloat(0., iotype='out', units='mi/galUS', 
                           desc='EPA Fuel economy - City')
-    EPA_highway = UnitsFloat(0., io_direction='out', units='mi/galUS', 
+    EPA_highway = UnitsFloat(0., iotype='out', units='mi/galUS', 
                              desc='EPA Fuel economy - Highway')
         
     def __init__(self, doc=None, directory=''):
@@ -58,7 +58,9 @@ class DrivingSim(Assembly):
             EPA_highway       # Fuel economy for highway driving
             """
         
-        super(DrivingSim, self).__init__(doc, directory)    
+        super(DrivingSim, self).__init__(doc, directory)
+        
+        #self.workflow.sequential = True
 
         # set up interface to the framework  
         # Pylint: disable-msg=E1101
@@ -95,7 +97,7 @@ class DrivingSim(Assembly):
         
     def execute(self, required_outputs=None):
         """ Simulate the vehicle model at full throttle."""
-        #print '%s.execute()' % self.get_pathname()
+
         #--------------------------------------------------------------------
         # Simulate acceleration time from 0 to end_speed
         #--------------------------------------------------------------------
@@ -317,6 +319,7 @@ class DrivingSim(Assembly):
             
         self.EPA_city = fuel_economy[0]
         self.EPA_highway = fuel_economy[1]
+
     
 def test_it(): # pragma: no cover    
     """simple testing"""

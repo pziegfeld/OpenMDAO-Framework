@@ -33,10 +33,10 @@ def rosen_suzuki(x):
 class DrivenComponent(Component):
     """ Just something to be driven and compute results. """
 
-    x = Array('d', value=[1., 1., 1., 1.], io_direction='in')
-    y = Array('d', value=[1., 1., 1., 1.], io_direction='in')
-    rosen_suzuki = Float(0., io_direction='out')
-    sum_y = Float(0., io_direction='out')
+    x = Array('d', value=[1., 1., 1., 1.], iotype='in')
+    y = Array('d', value=[1., 1., 1., 1.], iotype='in')
+    rosen_suzuki = Float(0., iotype='out')
+    sum_y = Float(0., iotype='out')
         
     def __init__(self, *args, **kwargs):
         super(DrivenComponent, self).__init__(*args, **kwargs)

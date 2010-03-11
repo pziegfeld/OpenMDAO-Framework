@@ -54,6 +54,7 @@ kwds = { 'name':'openmdao.examples.engine_design',
          'include_package_data': True,
          'test_suite':'nose.collector',
          'zip_safe': False,
+         'setup_requires': ['numpy'],
          'install_requires':[
              'setuptools',
              'openmdao.lib',

@@ -29,10 +29,10 @@ class Vehicle(Assembly):
     
     implements(IVehicle)
     
-    tire_circumference = UnitsFloat(75.0, io_direction='in', units='inch', 
+    tire_circumference = UnitsFloat(75.0, iotype='in', units='inch', 
                                     desc='Circumference of tire (inches)')
     
-    velocity = UnitsFloat(75.0, io_direction='in', units='mi/h', 
+    velocity = UnitsFloat(75.0, iotype='in', units='mi/h', 
                 desc='Vehicle velocity needed to determine engine RPM (mi/h)')
     
     def __init__(self, directory=''):
@@ -80,6 +80,8 @@ class Vehicle(Assembly):
         
         super(Vehicle, self).__init__(directory)
 
+        #self.workflow.sequential = True
+        
         # Create component instances
         
         self.add_container('transmission', Transmission())
@@ -134,7 +136,6 @@ class Vehicle(Assembly):
         self.connect('engine.torque','chassis.engine_torque')
         self.connect('engine.engine_weight','chassis.mass_engine')
         
-        self.workflow.sequential = True
 
 
         

@@ -16,30 +16,30 @@ class Transmission(Component):
     # Pylint: disable-msg=E1101
     
     # Design parameters
-    ratio1 = Float(3.54, io_direction='in', 
+    ratio1 = Float(3.54, iotype='in', 
                    desc='Gear ratio in First Gear')
-    ratio2 = Float(2.13, io_direction='in', 
+    ratio2 = Float(2.13, iotype='in', 
                    desc='Gear ratio in Second Gear')
-    ratio3 = Float(1.36, io_direction='in', 
+    ratio3 = Float(1.36, iotype='in', 
                    desc='Gear ratio in Third Gear')
-    ratio4 = Float(1.03, io_direction='in', 
+    ratio4 = Float(1.03, iotype='in', 
                    desc='Gear ratio in Fourth Gear')
-    ratio5 = Float(0.72, io_direction='in', 
+    ratio5 = Float(0.72, iotype='in', 
                    desc='Gear ratio in Fifth Gear')
-    final_drive_ratio = Float(2.8, io_direction='in', 
+    final_drive_ratio = Float(2.8, iotype='in', 
                               desc='Final Drive Ratio')
-    tire_circ = UnitsFloat(75.0, io_direction='in', units='inch', 
+    tire_circ = UnitsFloat(75.0, iotype='in', units='inch', 
                            desc='Circumference of tire (inches)')
 
     # Simulation inputs
-    current_gear = Int(0, io_direction='in', desc='Current Gear')
-    velocity = UnitsFloat(0., io_direction='in', units='mi/h',
+    current_gear = Int(0, iotype='in', desc='Current Gear')
+    velocity = UnitsFloat(0., iotype='in', units='mi/h',
                      desc='Current Velocity of Vehicle')
 
     # Outputs
-    RPM = UnitsFloat(1000., io_direction='out', units='1/min',
+    RPM = UnitsFloat(1000., iotype='out', units='1/min',
                      desc='Engine RPM')        
-    torque_ratio = Float(0., io_direction='out',
+    torque_ratio = Float(0., iotype='out',
                          desc='Ratio of output torque to engine torque')        
 
 
@@ -47,7 +47,6 @@ class Transmission(Component):
         """ The 5-speed manual transmission is simulated by determining the
             torque output and engine RPM via the gear ratios.
             """
-        #print '%s.execute()' % self.get_pathname()
         ratios = [0.0, self.ratio1, self.ratio2, self.ratio3, self.ratio4,
                   self.ratio5]
         

@@ -10,6 +10,7 @@ import os.path
 from os.path import isabs, isdir, dirname, exists, join, normpath, relpath
 import pkg_resources
 import sys
+from threading import RLock
 
 from enthought.traits.api import List, Str, Python
 from enthought.traits.trait_base import not_event
@@ -60,7 +61,7 @@ class Component (Container):
     """
 
     directory = Str('', desc='If non-blank, the directory to execute in.', 
-                    io_direction='in')
+                    iotype='in')
     external_files = List(FileMetadata)
         
     def __init__(self, doc=None, directory=''):
@@ -74,6 +75,7 @@ class Component (Container):
             self.directory = directory
         
         self._dir_stack = []
+        self._lock = RLock()
 
     def tree_rooted(self):
         """Calls the base class version of tree_rooted(), checks our
@@ -156,19 +158,19 @@ class Component (Container):
         
         Do not override this function.
         """
-        if self.directory:
-            self.push_dir()
-
-        self._stop = False
-        try:
-            self._pre_execute()
-            #if __debug__: self._logger.debug('execute %s' % self.get_pathname())
-            #print 'execute %s' % self.get_pathname()
-            self.execute(required_outputs=required_outputs)
-            self._post_execute()
-        finally:
+        with self._lock:
             if self.directory:
-                self.pop_dir()
+                self.push_dir()
+    
+            self._stop = False
+            try:
+                self._pre_execute()
+                #if __debug__: self._logger.debug('execute %s' % self.get_pathname())
+                self.execute(required_outputs=required_outputs)
+                self._post_execute()
+            finally:
+                if self.directory:
+                    self.pop_dir()
  
     def add_container(self, name, obj):
         """Override of base class version to force call to check_config after
@@ -597,7 +599,7 @@ class Component (Container):
             for fvarname, fvar, ftrait in fvars:
                 path = fvar.path
                 if path:
-                    is_input = ftrait.io_direction == 'in'
+                    is_input = ftrait.iotype == 'in'
                     self._list_files(path, package, rel_path, is_input, False,
                                      ftrait.binary, file_list)
 

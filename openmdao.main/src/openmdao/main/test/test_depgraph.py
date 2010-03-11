@@ -9,7 +9,7 @@ from openmdao.main.api import Assembly, Component, set_as_top
 
 def dump_stuff(obj, **kwargs):
     valid = kwargs.get('valid')
-    io = kwargs.get('io_direction')
+    io = kwargs.get('iotype')
     if io == 'in' or io == 'both':
         for name in obj.list_inputs(valid=valid):
             print '.'.join([obj.get_pathname(),name])
@@ -22,10 +22,10 @@ def dump_stuff(obj, **kwargs):
                 dump_stuff(val, **kwargs)
         
 class Simple(Component):
-    a = Int(io_direction='in')
-    b = Int(io_direction='in')
-    c = Int(io_direction='out')
-    d = Int(io_direction='out')
+    a = Int(iotype='in')
+    b = Int(iotype='in')
+    c = Int(iotype='out')
+    d = Int(iotype='out')
     
     def __init__(self):
         super(Simple, self).__init__()

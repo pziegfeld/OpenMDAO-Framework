@@ -17,6 +17,7 @@ class EngineOptimization(Assembly):
         """ Creates a new Assembly containing a DrivingSim and an optimizer"""
         
         super(EngineOptimization, self).__init__(directory)
+        #self.workflow.sequential = True
 
         # Create DrivingSim component instances
         self.add_container('driving_sim', DrivingSim())

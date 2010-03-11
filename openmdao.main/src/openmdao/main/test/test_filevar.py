@@ -22,11 +22,11 @@ from openmdao.main.filevar import FileTrait, FileRef
 class Source(Component):
     """ Produces files. """
 
-    write_files = Bool(True, io_direction='in')
-    text_data = Str(io_direction='in')
-    binary_data = Array('d', io_direction='in')
-    text_file = FileTrait(path='source.txt', io_direction='out', content_type='txt')
-    binary_file = FileTrait(path='source.bin', io_direction='out', binary=True,
+    write_files = Bool(True, iotype='in')
+    text_data = Str(iotype='in')
+    binary_data = Array('d', iotype='in')
+    text_file = FileTrait(path='source.txt', iotype='out', content_type='txt')
+    binary_file = FileTrait(path='source.bin', iotype='out', binary=True,
                             extra_stuff='Hello world!')
 
     def execute(self, required_outputs=None):
@@ -43,11 +43,11 @@ class Source(Component):
 
 class Passthrough(Component):
     """ Copies input files (implicitly via local_path) to output. """
-    text_in = FileTrait(io_direction='in', local_path='tout',
+    text_in = FileTrait(iotype='in', local_path='tout',
                         legal_types=['xyzzy', 'txt'])
-    binary_in = FileTrait(io_direction='in', local_path='bout')
-    text_out = FileTrait(path='tout', io_direction='out')
-    binary_out = FileTrait(path='bout', io_direction='out', binary=True)
+    binary_in = FileTrait(iotype='in', local_path='bout')
+    text_out = FileTrait(path='tout', iotype='out')
+    binary_out = FileTrait(path='bout', iotype='out', binary=True)
 
     def execute(self, required_outputs=None):
         """ File copies are performed implicitly. """
@@ -74,11 +74,11 @@ class Middle(Assembly):
 class Sink(Component):
     """ Consumes files. """
 
-    bogus_path = Str('', io_direction='in')
-    text_data = Str(io_direction='out')
-    binary_data = Array('d', io_direction='out')
-    text_file = FileTrait(io_direction='in')
-    binary_file = FileTrait(io_direction='in')
+    bogus_path = Str('', iotype='in')
+    text_data = Str(iotype='out')
+    binary_data = Array('d', iotype='out')
+    text_file = FileTrait(iotype='in')
+    binary_file = FileTrait(iotype='in')
 
     def execute(self, required_outputs=None):
         """ Read test data from files. """
@@ -271,12 +271,12 @@ class TestCase(unittest.TestCase):
             FileTrait()
         except TraitError, exc:
             self.assertEqual(str(exc),
-                             "FileTrait must have 'io_direction' defined.")
+                             "FileTrait must have 'iotype' defined.")
         else:
             self.fail('Expected TraitError')
 
         try:
-            FileTrait(io_direction='out')
+            FileTrait(iotype='out')
         except TraitError, exc:
             self.assertEqual(str(exc),
                              "Output FileTrait must have 'path' defined.")
@@ -284,7 +284,7 @@ class TestCase(unittest.TestCase):
             self.fail('Expected TraitError')
 
         try:
-            FileTrait(io_direction='out', path='xyzzy', legal_types=42)
+            FileTrait(iotype='out', path='xyzzy', legal_types=42)
         except TraitError, exc:
             self.assertEqual(str(exc),
                              "'legal_types' invalid for output FileTrait.")
@@ -292,7 +292,7 @@ class TestCase(unittest.TestCase):
             self.fail('Expected TraitError')
 
         try:
-            FileTrait(io_direction='out', path='xyzzy', local_path=42)
+            FileTrait(iotype='out', path='xyzzy', local_path=42)
         except TraitError, exc:
             self.assertEqual(str(exc),
                              "'local_path' invalid for output FileTrait.")
@@ -300,7 +300,7 @@ class TestCase(unittest.TestCase):
             self.fail('Expected TraitError')
 
         try:
-            FileTrait(io_direction='in', path='xyzzy')
+            FileTrait(iotype='in', path='xyzzy')
         except TraitError, exc:
             self.assertEqual(str(exc),
                              "'path' invalid for input FileTrait.")

@@ -7,7 +7,7 @@ from openmdao.main.api import Assembly, Component, set_as_top
 
 def dump_stuff(obj, **kwargs):
     valid = kwargs.get('valid')
-    io = kwargs.get('io_direction')
+    io = kwargs.get('iotype')
     if io == 'in' or io == 'both':
         for name in obj.list_inputs(valid=valid):
             print '.'.join([obj.get_pathname(),name])
@@ -20,9 +20,9 @@ def dump_stuff(obj, **kwargs):
                 dump_stuff(val, **kwargs)
 
 class Multiplier(Component):
-    rval_in = Float(io_direction='in')
-    rval_out = Float(io_direction='out')
-    mult = Float(io_direction='in')
+    rval_in = Float(iotype='in')
+    rval_out = Float(iotype='out')
+    mult = Float(iotype='in')
     
     def __init__(self):
         super(Multiplier, self).__init__()
@@ -37,10 +37,10 @@ class Multiplier(Component):
         
 class Simple(Component):
     
-    a = Float(io_direction='in')
-    b = Float(io_direction='in')
-    c = Float(io_direction='out')
-    d = Float(io_direction='out')
+    a = Float(iotype='in')
+    b = Float(iotype='in')
+    c = Float(iotype='out')
+    d = Float(iotype='out')
     
     def __init__(self):
         super(Simple, self).__init__()
@@ -57,15 +57,15 @@ class Simple(Component):
 
 class DummyComp(Component):
     
-    r = Float(io_direction='in')
-    r2 = Float(io_direction='in')
-    s = Str(io_direction='in')
-    rout = Float(io_direction='out')
-    r2out = Float(io_direction='out')
-    sout = Str(io_direction='out')
+    r = Float(iotype='in')
+    r2 = Float(iotype='in')
+    s = Str(iotype='in')
+    rout = Float(iotype='out')
+    r2out = Float(iotype='out')
+    sout = Str(iotype='out')
     
-    dummy_in  = Instance(Component, io_direction='in')
-    dummy_out = Instance(Component, io_direction='out')
+    dummy_in  = Instance(Component, iotype='in')
+    dummy_out = Instance(Component, iotype='out')
     
     def __init__(self):
         super(DummyComp, self).__init__()

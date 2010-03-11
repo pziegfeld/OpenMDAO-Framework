@@ -444,28 +444,28 @@ The next step is to add the inputs and outputs that are defined in our model des
 	class Transmission(Component):
 	    """ A simple transmission model."""
 	
-	    ratio1 = Float(3.54, io_direction='in', 
+	    ratio1 = Float(3.54, iotype='in', 
 	             desc='Gear ratio in First Gear')
-	    ratio2 = Float(2.13, io_direction='in', 
+	    ratio2 = Float(2.13, iotype='in', 
 	             desc='Gear ratio in Second Gear')
-	    ratio3 = Float(1.36, io_direction='in', 
+	    ratio3 = Float(1.36, iotype='in', 
 	             desc='Gear ratio in Third Gear')
-	    ratio4 = Float(1.03, io_direction='in', 
+	    ratio4 = Float(1.03, iotype='in', 
 	             desc='Gear ratio in Fourth Gear')
-	    ratio5 = Float(0.72, io_direction='in', 
+	    ratio5 = Float(0.72, iotype='in', 
 	             desc='Gear ratio in Fifth Gear')
-	    final_drive_ratio = Float(2.8, io_direction='in', 
+	    final_drive_ratio = Float(2.8, iotype='in', 
 	             desc='Final Drive Ratio')
-	    tire_circ = UnitsFloat(75.0, io_direction='in', units='inch', 
+	    tire_circ = UnitsFloat(75.0, iotype='in', units='inch', 
 	             desc='Circumference of tire (inches)')
 
-	    current_gear = Int(0, io_direction='in', desc='Current Gear')
-	    velocity = UnitsFloat(0., io_direction='in', units='mi/h',
+	    current_gear = Int(0, iotype='in', desc='Current Gear')
+	    velocity = UnitsFloat(0., iotype='in', units='mi/h',
 	             desc='Current Velocity of Vehicle')
 
-	    RPM = UnitsFloat(1000., io_direction='out', units='1/min',
+	    RPM = UnitsFloat(1000., iotype='out', units='1/min',
 	             desc='Engine RPM')        
-	    torque_ratio = Float(0., io_direction='out',
+	    torque_ratio = Float(0., iotype='out',
 	             desc='Ratio of output torque to engine torque')    
 
 Note that the addition of inputs and outputs for this component requires several more imports in the first
@@ -499,7 +499,7 @@ separated by underscores.
 
 The first parameter is the required default value for the data object.
 
-The parameter "io_direction" marks this Data Object as either an input (in) or an output (out) to the parent component. The parameter "desc"
+The parameter "iotype" marks this Data Object as either an input (in) or an output (out) to the parent component. The parameter "desc"
 gives a documentation string describes this data object. This should be used to provide an adequate explanation for
 each input and output on a component.
 
@@ -516,7 +516,7 @@ engine.py.
 
 .. testcode:: Code2
 
-        	RPM = UnitsFloat(1000.0, low=1000., high=6000., io_direction='in', 
+        	RPM = UnitsFloat(1000.0, low=1000., high=6000., iotype='in', 
                      units='1/min',  desc='Engine RPM')		      
 
 Here, a minimum and maximum limit have been set for the engine input RPM using the arguments "low" and "high". If the engine 
@@ -790,10 +790,10 @@ accomplish this, the inputs must be declared in the class header:
 	class Vehicle(Assembly):
 	    """ Vehicle assembly. """
     
-	    tire_circumference = UnitsFloat(75.0, io_direction='in', units='inch', 
+	    tire_circumference = UnitsFloat(75.0, iotype='in', units='inch', 
                                 desc='Circumference of tire (inches)')
     
-	    velocity = UnitsFloat(75.0, io_direction='in', units='mi/h', 
+	    velocity = UnitsFloat(75.0, iotype='in', units='mi/h', 
                        desc='Vehicle velocity needed to determine engine RPM (mi/h)')
 
 Now these input are available to connect to the components.
@@ -812,10 +812,10 @@ Now these input are available to connect to the components.
 	class Vehicle(Assembly):
 	    """ Vehicle assembly. """
     
-	    tire_circumference = UnitsFloat(75.0, io_direction='in', units='inch', 
+	    tire_circumference = UnitsFloat(75.0, iotype='in', units='inch', 
                                     desc='Circumference of tire (inches)')
     
-	    velocity = UnitsFloat(75.0, io_direction='in', units='mi/h', 
+	    velocity = UnitsFloat(75.0, iotype='in', units='mi/h', 
                 desc='Vehicle velocity needed to determine engine RPM (mi/h)')
     
 	    def __init__(self, directory=''):
