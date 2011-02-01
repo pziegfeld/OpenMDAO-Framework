@@ -5,16 +5,27 @@ import sys
 from numpy.distutils.core import setup
 from numpy.distutils.misc_util import Configuration
 
+include_dirs_extra = []
+COIN_INCLUDE_DIR = os.environ.get('COIN_INCLUDE_DIR', '')
+if COIN_INCLUDE_DIR:
+    include_dirs_extra.append( COIN_INCLUDE_DIR )
+    
+lib_dirs_extra = []
+COIN_LIB_DIR = os.environ.get('COIN_LIB_DIR', '')
+if COIN_LIB_DIR:
+    lib_dirs_extra.append( COIN_LIB_DIR )
+COIN_THIRDPARTY_LIB_DIR = os.environ.get('COIN_THIRDPARTY_LIB_DIR', '')
+if COIN_THIRDPARTY_LIB_DIR:
+    lib_dirs_extra.append( COIN_THIRDPARTY_LIB_DIR )
+    
 if sys.platform == 'win32':
     import openmdao.util.distutils_fix
     sdkdir = os.environ.get('WindowsSdkDir')
     include_dirs = [os.path.join(sdkdir,'Include')]
-    include_dirs.extend( [ r'c:\Users\hschilli\local\include\coin' ] )
+    include_dirs.extend( include_dirs_extra )
     library_dirs = [os.path.join(sdkdir,'Lib')]
-    library_dirs.extend( [
-                           'c:\Users\hschilli\local\lib\coin',
-                            'c:\Users\hschilli\local\lib\coin\ThirdParty'
-                         ] )
+    library_dirs.extend( lib_dirs_extra )
+
     # make sure we have mt.exe available in path
     path = os.environ['PATH'].split(';')
     path.append(os.path.join(sdkdir,'bin'))
@@ -31,10 +42,8 @@ if sys.platform == 'win32':
         'pthread'
         ]
 else:
-    include_dirs = ['/home/hschilli/local/include/coin/',]
-    library_dirs = ['/home/hschilli/local/lib/coin',
-                    '/home/hschilli/local/lib/coin/ThirdParty',
-                    '/home/hschilli/local/lib']
+    include_dirs = include_dirs_extra
+    library_dirs = lib_dirs_extra
     libraries = [
         'ipopt',
         'coinhsl',
