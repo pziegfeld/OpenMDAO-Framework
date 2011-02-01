@@ -14,6 +14,26 @@ Paraboloid w non-lin const  | nonlinear |   2   |    0     |      1      |
 
 """
 
+
+import logging
+# Make a global logging object.
+x = logging.getLogger("ipopt_log")
+x.setLevel(logging.DEBUG)
+
+# This handler writes everything to a file.
+h1 = logging.FileHandler("ipopt.log","w")
+#f = logging.Formatter("%(levelname)s %(asctime)s %(funcName)s %(lineno)d %(message)s")
+f = logging.Formatter("%(funcName)s %(lineno)d %(message)s")
+h1.setFormatter(f)
+h1.setLevel(logging.DEBUG)
+x.addHandler(h1)
+
+ipopt_log = logging.getLogger("ipopt_log")
+
+ipopt_log.debug( 'hello world' )
+
+
+
 import sys
 import os
 import unittest
@@ -49,62 +69,11 @@ import numpy
 # pylint: disable-msg=F0401,E0611
 
 
-#code for redirecting unit stderr and stdout
-# output from Ipopt C++ code.
-# So far none of this has helped! Leaving it in here for now
-
-save = None
-null_fds = None
-
-class NullDevice():
-    def write(self, s):
-        pass
-
-def redirect_fortran_stdout_to_null():
-    '''
-      capture the output intended for
-      stdout and just send it to dev/null
-    '''
-
-    global save, null_fds
-
-    sys.stdout.flush()
-    
-    #sys.stdout = open(os.devnull, 'w')
-    #sys.stdout = WritableObject()
-    # open 2 fds
-    null_fds = [os.open(os.devnull, os.O_RDWR), os.open(os.devnull, os.O_RDWR)]
-    # save the current file descriptors to a tuple
-    save = os.dup(1), os.dup(2)
-    # put /dev/null fds on 1 and 2
-    os.dup2(null_fds[0], 1)
-    os.dup2(null_fds[1], 2)
-
-def restore_fortran_stdout():
-    '''
-    restore stdout to the
-    value it has before the call to
-    redirect_fortran_stdout_to_null
-    '''
-    
-    global save, null_fds
-
-    sys.stdout.flush()
-
-    #sys.stdout == sys.__stdout__
-    # restore file descriptors so I can print the results
-    os.dup2(save[0], 1)
-    os.dup2(save[1], 2)
-    # close the temporary fds
-    os.close(null_fds[0])
-    os.close(null_fds[1])
-
-
 
 
 
 ###!!!!!!!!! Just temporary until this has all been integrated with framework 
-sys.path.append( "/home/hschilli/openmdao/ipopt-branch/contrib/ipopt/" )
+#sys.path.append( "/home/hschilli/openmdao/ipopt-branch/contrib/pyipopt/build/lib.linux-x86_64-2.6/pyipopt/" )
 
 from openmdao.main.api import Assembly, Component, set_as_top
 from openmdao.lib.datatypes.api import Float, Array
@@ -792,20 +761,17 @@ class IPOPTdriverExample1FromManualTestCase(unittest.TestCase):
             ('comp.x[1]', 0.0, 100.0),
             ] )
 
-        print "qqq"
-        sys.stdout.flush()
-
-
         map(self.top.driver.add_constraint,[
             '2.0 * comp.x[0] - comp.x[1] - 1.0 > 0.0',
             'comp.x[0] - 2.0 * comp.x[1] + 1.0 > 0.0',
             '- comp.x[0]**2 + 2.0 * ( comp.x[0] + comp.x[1]) - 1.0 > 0.0'
-            ])    
+            ])
+
         self.top.run()
 
         assert_rel_error(self,
-                         self.top.comp.opt_objective, 
                          self.top.driver.eval_objective(),
+                         self.top.comp.opt_objective, 
                          0.005)
         #self.assertAlmostEqual(self.top.comp.opt_objective, 
         #                       self.top.driver.eval_objective(), places=1)
@@ -847,6 +813,10 @@ class IPOPTdriverConstrainedBettsTestCase(unittest.TestCase):
 
         self.top.run()
 
+
+        ipopt_log.debug( "opt_objective = %f, eval_objective = %f" % ( self.top.comp.opt_objective, 
+                         self.top.driver.eval_objective() ) )
+        
         assert_rel_error(self,
                          self.top.comp.opt_objective, 
                          self.top.driver.eval_objective(),
@@ -905,32 +875,14 @@ class IPOPTdriverConstrainedBettsTestCase(unittest.TestCase):
 
 if __name__ == "__main__":
 
-    #sys.stdout = open(os.devnull, 'w') 
-    #sys.stdout = open("stdout", 'w') 
-
-    import logging
-    # Make a global logging object.
-    x = logging.getLogger("ipopt_log")
-    x.setLevel(logging.DEBUG)
-    
-    # This handler writes everything to a file.
-    h1 = logging.FileHandler("ipopt.log","w")
-    #f = logging.Formatter("%(levelname)s %(asctime)s %(funcName)s %(lineno)d %(message)s")
-    f = logging.Formatter("%(funcName)s %(lineno)d %(message)s")
-    h1.setFormatter(f)
-    h1.setLevel(logging.DEBUG)
-    x.addHandler(h1)
-
     suite = unittest.TestSuite()
-#     suite.addTest(unittest.makeSuite(IPOPTdriverParaboloidTestCase))
 
-
-#     suite.addTest(unittest.makeSuite(IPOPTdriverParaboloidWithLinearConstraintTestCase))
-#     suite.addTest(unittest.makeSuite(IPOPTdriverParaboloidWithNonLinearConstraintTestCase))
-#     suite.addTest(unittest.makeSuite(IPOPTdriverConstrainedBettsTestCase))
-#     suite.addTest(unittest.makeSuite(IPOPTdriverRosenSuzukiTestCase))
+    suite.addTest(unittest.makeSuite(IPOPTdriverParaboloidTestCase))
+    suite.addTest(unittest.makeSuite(IPOPTdriverParaboloidWithLinearConstraintTestCase))
+    suite.addTest(unittest.makeSuite(IPOPTdriverParaboloidWithNonLinearConstraintTestCase))
+    suite.addTest(unittest.makeSuite(IPOPTdriverConstrainedBettsTestCase))
+    suite.addTest(unittest.makeSuite(IPOPTdriverRosenSuzukiTestCase))
     suite.addTest(unittest.makeSuite(IPOPTdriverExample1FromManualTestCase))
 
     results = unittest.TextTestRunner(verbosity=2).run(suite)
 
-    #sys.stdout = sys.__stdout__
