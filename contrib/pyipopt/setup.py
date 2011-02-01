@@ -9,11 +9,27 @@ if sys.platform == 'win32':
     import openmdao.util.distutils_fix
     sdkdir = os.environ.get('WindowsSdkDir')
     include_dirs = [os.path.join(sdkdir,'Include')]
+    include_dirs.extend( [ r'c:\Users\hschilli\local\include\coin' ] )
     library_dirs = [os.path.join(sdkdir,'Lib')]
+    library_dirs.extend( [
+                           'c:\Users\hschilli\local\lib\coin',
+                            'c:\Users\hschilli\local\lib\coin\ThirdParty'
+                         ] )
     # make sure we have mt.exe available in path
     path = os.environ['PATH'].split(';')
     path.append(os.path.join(sdkdir,'bin'))
     os.environ['PATH'] = ';'.join(path)
+    libraries = [
+        'ipopt',
+        'coinhsl',
+        'coinmumps',
+        'coinmetis',
+        'm',
+        'coinlapack',
+        'coinblas',
+        'gfortran',
+        'pthread'
+        ]
 else:
     include_dirs = ['/home/hschilli/local/include/coin/',]
     library_dirs = ['/home/hschilli/local/lib/coin',

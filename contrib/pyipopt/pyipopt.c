@@ -165,8 +165,12 @@ PyObject *problem_getattr(PyObject* self, char* attrname)
   return result;
 }
 
+/* had to replace 
+     PyObject_HEAD_INIT(&PyType_Type)
+   in order to get this to compile on Windows
+   */
 PyTypeObject IpoptProblemType = {
-    PyObject_HEAD_INIT(&PyType_Type)
+    PyObject_HEAD_INIT(NULL)
     0,                         /*ob_size*/
     "pyipopt.Problem",         /*tp_name*/
     sizeof(problem),    		/*tp_basicsize*/
