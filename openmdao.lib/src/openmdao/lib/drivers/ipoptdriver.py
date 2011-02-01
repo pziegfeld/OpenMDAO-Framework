@@ -51,102 +51,12 @@ class IpoptReturnStatus:
     Invalid_Number_Detected = -13
     
 
-
-# functions for doing derivatives and gradients
-def func_mod_one_var(f, x_, i, x, driver):
-    ''' f is a function of an array and outputs one value.
-    evaluate the function at x except for the i element
-    of the array which will be substituted with x_.
-    The idea is to turn a function of an array into a function
-    of one variable'''
-    
-    xcopy = x[:]
-    xcopy[i] = x_
-    return f( xcopy, driver )
-
-def gradient( func, x0, dx, driver, order=2):
-    '''Compute the gradient of the given function at the given
-    point using finite differences
-    '''
-
-    x0_copy = x0.copy()
-    n = len(x0_copy)
-    grad = zeros( n )
-    for i in range( n ) :
-        ff = lambda y, driver: func_mod_one_var( func, y, i, x0_copy, driver )
-        grad[i] = derivative( ff, x0_copy[i], driver, dx, order=order)
-    return grad
-    
-def jacobian( g, x0, dx, driver, order=2):
-    '''g is an array of functions'''
-
-    m = len(g)
-    n = len(x0)
-
-    dg = zeros((m, n))
-
-    for j in range(m):
-        for i in range(n):
-            x0_copy = x0.copy() # TODO: Do i need all these copy commands ??
-            ff = lambda y, driver: func_mod_one_var( g[j], y, i,
-                                                     x0_copy, driver )
-            deriv = derivative( ff, x0_copy[i], driver, dx, order=order)
-            dg[j, i] = deriv
-            
-    return dg
-
-def derivative(func, x0, driver, dx=1.0, args=(), order=2):
-    """Given a function, use a central difference formula with spacing dx to
-    compute the nth derivative at x0.
-    
-    order is the number of points to use and must be odd.
-    
-    Warning: Decreasing the step size too small can result in
-    round-off error.
-    """
-
-    x0_copy = x0.copy()
-    
-    n = 1 # only do 
-    assert (order+1 >= n+1), \
-           "Number of points must be at least the derivative order + 1."
-    assert (order % 2 == 0), "Even number of points only."
-    
-    if order == 2:
-        weights = array([-1, 0, 1])/2.0
-    elif order == 4:
-        weights = array([1, -8, 0, 8, -1])/12.0
-    elif order == 6:
-        weights = array([-1, 9, -45, 0, 45, -9, 1])/60.0
-    elif order == 8:
-        weights = array([3, -32, 168, -672, 0, 672, -168, 32, -3])/840.0
-
-    val = 0.0
-    ho = ( order + 1 ) >> 1
-    for k in range(order+1):
-        #val += weights[k]*func(x0+(k-ho)*dx,*args)
-
-        # Do not eval any functions unless needed
-        if weights[k] != 0.0 :
-            tmp = weights[k]*func(x0_copy+(k-ho)*dx, driver)
-            val += tmp
-
-    deriv = val / product((dx,)*n, axis=0)
-
-    return deriv
-
-
-
-
-
-
 def eval_f_and_eval_g(x, driver, user_data = None):
     '''
     eval objective function and constraints.
     Cache results
     '''
 
-    # qqq
     driver.last_eval_x = x.copy()
 
     # update the design variables in the model
@@ -156,22 +66,11 @@ def eval_f_and_eval_g(x, driver, user_data = None):
     return 
 
 
-
-
-
-
-
-
-
-
-
 def eval_f(x, driver, user_data = None):
     '''evaluate objective function'''
 
     if not array_equal( x, driver.last_eval_x ):
         eval_f_and_eval_g( x, driver )
-    else:
-        pass
 
     obj = driver.eval_objective()
 
@@ -186,8 +85,6 @@ def eval_grad_f(x, driver, user_data = None):
 
     if not array_equal( x, driver.last_x ):
         eval_grad_f_and_jac_g( x, driver )
-    else:
-        pass
 
     return driver.grad_f
 
@@ -197,8 +94,6 @@ def eval_grad_f_and_jac_g(x, driver, user_data = None):
     Cache results
     '''
 
-
-    # qqq
     driver.last_x = x.copy()
 
     nvar = len( x ) 
