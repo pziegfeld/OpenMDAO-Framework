@@ -1,0 +1,14 @@
+This version of Pyipopt is slightly different than the version
+distributed by Eric Xu. Some code was cleaned up.
+
+Also, Pyipopt and Ipopt itself were slightly modified to handle
+exceptions better. The included files
+
+    IpStdCInterface.cpp
+    IpReturnCodes_inc.h
+
+add code to Ipopt so that when Ipopt's OptimizeTNLP method
+causes an exception, that can be captured and returned to
+Pyipopt as a new status value. So to use this code you need to 
+build Ipopt with these modifications. The modifications
+were made to Ipopt 3.9.1.

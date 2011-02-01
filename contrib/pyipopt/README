@@ -1,0 +1,93 @@
+INSTALL:
+
+In order to use this package, you have to get the following packages ready on your computer:
+
+	1.	A compiler and a linker
+	 		e.g. gcc, ld
+
+	2.	Ipopt. 
+			Download it from https://projects.coin-or.org/Ipopt
+		
+    3. 	Numpy
+			http://numpy.scipy.org/	
+	
+	4.	Python.h
+			Usually you can use apt-get install python-dev (Debian family) or 
+			download the source code from python.org
+			
+When you have everything ready, compiling pyipopt is rather simple. You can just use
+
+	make pyipopt
+
+then 
+
+	make install 
+    
+If you use make install, you might need to process superuser privilege, as it will copy file to python directory 
+
+[IMPORTANT]
+
+    Although I try very hard to make Makefile as generic as possible, there might still be some env variables in the Makefile that do not match your computer's configuration. 
+    Therefore, you might want to verify that all the env variables in the Makefile are correctly set. 
+
+
+To see if you have pyipopy ready, use the following command under the pyipopt's directory. 
+
+		python example.py
+	
+example.py contains a toy optimization problem. If everything is OK, pyipopt will call Ipopt and solve it for you. 
+This python file is self-documented and can be used as an example for writing your own optimization problems in python. 
+
+Ipopt can also solve problems w/o hessian estimation. example.py demonstrates the idea. If you provide the pyipopt.create function with the eval_h callback function as well as the apply_new callback function, ipopt will delegate the Hessian matrix calculation to you. Otherwise Ipopt will use it's own approximate hessian calculation.
+
+----------------------Wait, I have an error......................--------------
+
+pyipopt relies the C interface provided by Ipopt to do all the work. Therefore, you might want to check 
+if your C interface is correctly installed. I do understand that some folks can actually run ipopt executable, but 
+it doesn't mean that your Ipopt C Interface is correctly installed (as a library). 
+
+A good way to check this is to go to the 
+
+  $IPOPT_DIR/Ipopt/examples/hs071_c/ 
+
+directory and issue a "make" to see if you can compile and run this toy example. 
+Pyipopt, as you might know, uses the same mechanism this example uses to call ipopt via its C interface. 
+
+It is rather tricky to compile pyipopt because of so many dependencies. 
+
+I put some representative solutions to the dependency problem as follows:
+
+1. Error in using Pyipopt
+
+	import pyipopt
+	ImportError: /usr/lib/libipopt.so.0: undefined symbol: _gfortran_XXX
+
+Solution: 
+    check if your hs071_c example work. It is very likely that your ipopt library is not correctly compiled. 
+
+
+2. Don't have g2c library
+    
+Solution:
+    install libg2c
+
+3. Can't find libipopt.so.0
+
+Solution:
+    find it and copy it to a folder that ld can access
+
+Some one also reported that -lfortran is a necessary flag to compile pyipopt. I didn't use it personally. In case you can't get through, try it. 
+
+I do apologize for the lacking of configure/make system. This is under construction. 
+
+-----------------------------------------------------------------------------
+
+
+For bug report and other suggestions, please contact me at 
+
+youxu AT wustl.edu (Change AT to @)
+
+You can simply call me Eric.
+
+
+
