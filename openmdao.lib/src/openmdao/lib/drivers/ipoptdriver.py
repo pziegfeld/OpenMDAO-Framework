@@ -31,7 +31,7 @@ class IpoptReturnStatus:
     '''
 
     def __init__( self ):
-       pass
+        pass
     
     Solve_Succeeded = 0
     Solved_To_Acceptable_Level = 1
@@ -51,9 +51,6 @@ class IpoptReturnStatus:
     Invalid_Number_Detected = -13
     
 
-
-gradient_being_computed = False
-jacobian_being_computed = False
 
 # functions for doing derivatives and gradients
 def func_mod_one_var(f, x_, i, x, driver):
@@ -171,8 +168,6 @@ def eval_f_and_eval_g(x, driver, user_data = None):
 def eval_f(x, driver, user_data = None):
     '''evaluate objective function'''
 
-    global gradient_being_computed
-    
     if not array_equal( x, driver.last_eval_x ):
         eval_f_and_eval_g( x, driver )
     else:
@@ -206,15 +201,6 @@ def eval_grad_f_and_jac_g(x, driver, user_data = None):
     # qqq
     driver.last_x = x.copy()
 
-
-    # not needed. Just wastes time
-    #super(IPOPTdriver, driver).run_iteration()
-
-    #grad_f = gradient( eval_f, x, 0.01, driver, order = driver.fd_order )
-    global gradient_being_computed, jacobian_being_computed
-    gradient_being_computed = True
-    jacobian_being_computed = True
-
     nvar = len( x ) 
     driver.grad_f = zeros(nvar, 'd')
     ncon = len( driver.get_ineq_constraints() ) + \
@@ -241,13 +227,7 @@ def eval_grad_f_and_jac_g(x, driver, user_data = None):
 
 
         for j in range( ncon ):
-            driver.jac_g[j,i] = ( g2[j] - g1[j] ) * inv_fd_delta
-
-
-
-    #qqq
-    gradient_being_computed = False
-    jacobian_being_computed = False
+            driver.jac_g[j, i] = ( g2[j] - g1[j] ) * inv_fd_delta
 
 
     return 
@@ -261,9 +241,6 @@ def eval_g(x, driver, user_data= None):
         eval_f_and_eval_g( x, driver )
     else:
         pass
-
-
-    global jacobian_being_computed
 
     for i, v in enumerate(driver.get_ineq_constraints().values()):
         val = v.evaluate()
@@ -404,7 +381,7 @@ class IPOPTdriver(Driver):
                             desc='absolute tolerance on constraint violation' )
     
     obj_scaling_factor = Float(1.0, iotype='in', 
-                               desc='scaling factor for the objective function' )
+                               desc='scaling factor for the objective function')
     
     linear_solver = Enum('ma27',
                          [ 'ma27', 'ma57', 'ma77',
@@ -717,11 +694,6 @@ class IPOPTdriver(Driver):
             self._logger.error(str(err))
             raise
 
-        # do not really need since exceptions are thrown if error in create
-#         if not self.nlp:
-#             self.raise_exception("Error in creation of NLP in Ipopt", RuntimeError)
-
-
         # Set optimization options
         self.nlp.int_option( 'print_level', self.print_level )
         self.nlp.num_option( 'tol', self.tol )
@@ -807,7 +779,8 @@ class IPOPTdriver(Driver):
             self.raise_exception('no parameters specified', RuntimeError)
             
         # size constraint related arrays
-        length = len(self.get_ineq_constraints()) + len(self.get_eq_constraints())
+        length = len(self.get_ineq_constraints()) + \
+                 len(self.get_eq_constraints())
         self.constraint_vals = zeros(length, 'd')
         
 
