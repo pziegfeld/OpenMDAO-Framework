@@ -1,6 +1,6 @@
 """
 Test the IPOPT optimizer component using a variety of
-problems and special cases.
+  problems and special cases.
 
 Problem                     | Objective | nvars | Lin Cons | Nonlin Cons | 
 ==========================================================================
@@ -13,25 +13,6 @@ Paraboloid w lin constraint | nonlinear |   2   |  1 and 3 |      0      |
 Paraboloid w non-lin const  | nonlinear |   2   |    0     |      1      | 
 
 """
-
-
-import logging
-# Make a global logging object.
-x = logging.getLogger("ipopt_log")
-x.setLevel(logging.DEBUG)
-
-# This handler writes everything to a file.
-h1 = logging.FileHandler("ipopt.log","w")
-#f = logging.Formatter("%(levelname)s %(asctime)s %(funcName)s %(lineno)d %(message)s")
-f = logging.Formatter("%(funcName)s %(lineno)d %(message)s")
-h1.setFormatter(f)
-h1.setLevel(logging.DEBUG)
-x.addHandler(h1)
-
-ipopt_log = logging.getLogger("ipopt_log")
-
-ipopt_log.debug( 'hello world' )
-
 
 
 import sys
@@ -68,17 +49,9 @@ import numpy
 #     really can import
 # pylint: disable-msg=F0401,E0611
 
-
-
-
-
-###!!!!!!!!! Just temporary until this has all been integrated with framework 
-#sys.path.append( "/home/hschilli/openmdao/ipopt-branch/contrib/pyipopt/build/lib.linux-x86_64-2.6/pyipopt/" )
-
 from openmdao.main.api import Assembly, Component, set_as_top
 from openmdao.lib.datatypes.api import Float, Array
 from openmdao.lib.drivers.api import IPOPTdriver
-from openmdao.lib.drivers.ipoptdriver import derivative
 from openmdao.util.testutil import assert_rel_error
 from openmdao.lib.datatypes.api import TraitError
 
@@ -773,8 +746,6 @@ class IPOPTdriverExample1FromManualTestCase(unittest.TestCase):
                          self.top.driver.eval_objective(),
                          self.top.comp.opt_objective, 
                          0.005)
-        #self.assertAlmostEqual(self.top.comp.opt_objective, 
-        #                       self.top.driver.eval_objective(), places=1)
         self.assertAlmostEqual(self.top.comp.opt_design_vars[0], 
                                self.top.comp.x[0], places=2)
         self.assertAlmostEqual(self.top.comp.opt_design_vars[1], 
@@ -813,10 +784,6 @@ class IPOPTdriverConstrainedBettsTestCase(unittest.TestCase):
 
         self.top.run()
 
-
-        ipopt_log.debug( "opt_objective = %f, eval_objective = %f" % ( self.top.comp.opt_objective, 
-                         self.top.driver.eval_objective() ) )
-        
         assert_rel_error(self,
                          self.top.comp.opt_objective, 
                          self.top.driver.eval_objective(),
