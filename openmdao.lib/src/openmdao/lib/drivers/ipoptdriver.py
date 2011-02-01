@@ -20,7 +20,10 @@ ipopt_log = logging.getLogger("ipopt_log")
 # pylint: disable-msg=E0611,F0401
 from numpy import zeros, ones, array, product, append, array_equal
 
-import pyipopt
+ipopt_log.debug( 'importing pyipopt' )
+import pyipopt.pyipopt as pyipopt
+ipopt_log.debug( 'pyipopt path = %s' % dir(pyipopt))
+ipopt_log.debug( 'pyipopt path = %s' % pyipopt.__file__)
 
 from openmdao.main.api import Driver
 from openmdao.main.exceptions import RunStopped
@@ -746,8 +749,7 @@ class IPOPTdriver(Driver):
             self.design_vals[i] = val.expreval.evaluate()
             
         # perform an initial run for self-consistency
-        ipopt_log.debug("qqq8 run_iteration" )
-        super(IPOPTdriver, self).run_iteration()
+        #super(IPOPTdriver, self).run_iteration()
 
         # update constraint value array
         for i, v in enumerate(self.get_ineq_constraints().values()):
