@@ -24,6 +24,11 @@
 * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+
+/*
+ Modifications made by OpenMDAO at NASA Glenn Research Center, 2010 and 2011 
+*/
+
 #include "hook.h"
 
 /* Object Section */
@@ -595,18 +600,18 @@ PyObject *close_model(PyObject *self, PyObject *args)
   return Py_True;
 }
 
-static char PYTEST[] = "TestCreate\n";
+/* static char PYTEST[] = "TestCreate\n"; */
 
-static PyObject *test(PyObject *self, PyObject *args)
-{
-  IpoptProblem thisnlp = NULL;
-  problem *object = NULL;
-  object = PyObject_NEW(problem , &IpoptProblemType);
-  if (object != NULL)
-    object->nlp = thisnlp;
-  /* 	problem *object = problem_new(thisnlp); */
-  return (PyObject *)object;
-}
+/* static PyObject *test(PyObject *self, PyObject *args) */
+/* { */
+/*   IpoptProblem thisnlp = NULL; */
+/*   problem *object = NULL; */
+/*   object = PyObject_NEW(problem , &IpoptProblemType); */
+/*   if (object != NULL) */
+/*     object->nlp = thisnlp; */
+/*   /\* 	problem *object = problem_new(thisnlp); *\/ */
+/*   return (PyObject *)object; */
+/* } */
 
 /* Begin Python Module code section */
 static PyMethodDef ipoptMethods[] = {
@@ -621,9 +626,8 @@ PyMODINIT_FUNC
 initpyipopt(void)
 {
 
-  PyObject* m = 
-    Py_InitModule3("pyipopt", ipoptMethods, 
-                   "A hook between Ipopt and Python");
+  Py_InitModule3("pyipopt", ipoptMethods, 
+                 "A hook between Ipopt and Python");
   
   import_array( );         /* Initialize the Numarray module. */
   /* A segfault will occur if I use numarray without this.. */
