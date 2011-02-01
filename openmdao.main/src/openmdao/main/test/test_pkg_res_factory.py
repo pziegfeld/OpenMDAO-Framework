@@ -146,6 +146,7 @@ class PkgResFactoryTestCase(unittest.TestCase):
         self.assertTrue(types.issuperset(set(['openmdao.lib.CONMINdriver',
                                               'openmdao.lib.pyevolvedriver',
                                               'openmdao.lib.NEWSUMTdriver',
+                                              'openmdao.lib.IPOPTdriver',
                                               'openmdao.test.ExecComp'])))
         
 if __name__ == "__main__":

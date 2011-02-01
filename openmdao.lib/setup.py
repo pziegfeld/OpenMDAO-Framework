@@ -44,6 +44,7 @@ Component, Driver, and TraitType plugins for OpenMDAO
           'openmdao.main',
           'conmin==1.0.1',
           'newsumt==1.0.0',
+          'pyipopt==1.0.0',
           'Pyevolve==0.6',
           'ordereddict',
           'scipy',
@@ -52,6 +53,7 @@ Component, Driver, and TraitType plugins for OpenMDAO
       [openmdao.driver]
       openmdao.lib.CONMINdriver = openmdao.lib.drivers.conmindriver:CONMINdriver
       openmdao.lib.NEWSUMTdriver = openmdao.lib.drivers.newsumtdriver:NEWSUMTdriver
+      openmdao.lib.IPOPTdriver = openmdao.lib.drivers.ipoptdriver:IPOPTdriver
       openmdao.lib.pyevolvedriver = openmdao.lib.drivers.pyevolvedriver:pyevolvedriver
       """,
       )
