@@ -12,18 +12,10 @@ __all__ = ['IPOPTdriver']
 
 import sys
 
-import logging
-ipopt_log = logging.getLogger("ipopt_log")
-
-    
-
 # pylint: disable-msg=E0611,F0401
 from numpy import zeros, ones, array, product, append, array_equal
 
-ipopt_log.debug( 'importing pyipopt' )
 import pyipopt.pyipopt as pyipopt
-ipopt_log.debug( 'pyipopt path = %s' % dir(pyipopt))
-ipopt_log.debug( 'pyipopt path = %s' % pyipopt.__file__)
 
 from openmdao.main.api import Driver
 from openmdao.main.exceptions import RunStopped
@@ -60,7 +52,6 @@ class IpoptReturnStatus:
     
 
 
-# qqq
 gradient_being_computed = False
 jacobian_being_computed = False
 
@@ -81,10 +72,6 @@ def gradient( func, x0, dx, driver, order=2):
     point using finite differences
     '''
 
-    f = open("junk.out", "a" )
-    f.write( "qqq in gradient: dx = %f\n" % dx )
-    f.close()
-   
     x0_copy = x0.copy()
     n = len(x0_copy)
     grad = zeros( n )
@@ -95,11 +82,6 @@ def gradient( func, x0, dx, driver, order=2):
     
 def jacobian( g, x0, dx, driver, order=2):
     '''g is an array of functions'''
-
-    f = open("junk.out", "a" )
-    f.write( "qqq in jacobian: dx = %f\n" % dx )
-    f.close()
-
 
     m = len(g)
     n = len(x0)
@@ -126,10 +108,6 @@ def derivative(func, x0, driver, dx=1.0, args=(), order=2):
     round-off error.
     """
 
-    f = open("junk.out", "a" )
-    f.write( "qqq in derivative: dx = %f\n" % dx )
-    f.close()
-   
     x0_copy = x0.copy()
     
     n = 1 # only do 
@@ -151,19 +129,12 @@ def derivative(func, x0, driver, dx=1.0, args=(), order=2):
     for k in range(order+1):
         #val += weights[k]*func(x0+(k-ho)*dx,*args)
 
-        f = open("junk.out", "a" )
-        f.write( "qqq in derivative: k and eval = %d, %f\n" % ( k,x0_copy+(k-ho)*dx )  )
-        f.close()
-
         # Do not eval any functions unless needed
         if weights[k] != 0.0 :
             tmp = weights[k]*func(x0_copy+(k-ho)*dx, driver)
             val += tmp
 
     deriv = val / product((dx,)*n, axis=0)
-    f = open("junk.out", "a" )
-    f.write( "qqq in derivative: x, deriv = %f, %f\n" % ( x0, deriv )  )
-    f.close()
 
     return deriv
 
@@ -178,14 +149,11 @@ def eval_f_and_eval_g(x, driver, user_data = None):
     Cache results
     '''
 
-    ipopt_log.debug("qqq77 x = %s " % x )
-
     # qqq
     driver.last_eval_x = x.copy()
 
     # update the design variables in the model
     driver.set_parameters(x)
-    ipopt_log.debug("qqq8 run_iteration with x = %s" % x )
     super(IPOPTdriver, driver).run_iteration()
 
     return 
@@ -205,17 +173,10 @@ def eval_f(x, driver, user_data = None):
 
     global gradient_being_computed
     
-    if gradient_being_computed:
-        ipopt_log.debug("x (gradient)= %s " % x )
-    else:
-        ipopt_log.debug("x = %s " % x )
-
-
     if not array_equal( x, driver.last_eval_x ):
-        ipopt_log.debug("Compute new f and g" )
         eval_f_and_eval_g( x, driver )
     else:
-        ipopt_log.debug("Reuse existing eval_f" )
+        pass
 
     obj = driver.eval_objective()
 
@@ -228,17 +189,10 @@ def eval_grad_f(x, driver, user_data = None):
     Use the gradient function above
     '''
 
-    ipopt_log.debug("x = %s " % x )
-
-
     if not array_equal( x, driver.last_x ):
-        ipopt_log.debug("Compute new grad_f and jac_g" )
         eval_grad_f_and_jac_g( x, driver )
     else:
-        ipopt_log.debug("Reuse existing grad_f" )
-
-
-    ipopt_log.debug( "grad_f = %s" % driver.grad_f.tolist( ) )
+        pass
 
     return driver.grad_f
 
@@ -248,7 +202,6 @@ def eval_grad_f_and_jac_g(x, driver, user_data = None):
     Cache results
     '''
 
-    ipopt_log.debug("qqq77 x = %s " % x )
 
     # qqq
     driver.last_x = x.copy()
@@ -272,26 +225,16 @@ def eval_grad_f_and_jac_g(x, driver, user_data = None):
         xtmp[i] -= driver.fd_delta
         f1 = eval_f( xtmp, driver ) # this runs the model at xtmp
 
-        ipopt_log.debug( "f1 = %s" % f1 )
-
         update_constraints( driver)
         # While we are at it, get the constraints too
         g1 = driver.constraint_vals.copy()
 
-        ipopt_log.debug( "g1 = %s" % g1.tolist() )
-        
         xtmp = x.copy()
         xtmp[i] += driver.fd_delta
         f2 = eval_f( xtmp, driver )
 
-        ipopt_log.debug( "f2 = %s" % f2 )
-
-
         update_constraints( driver)
         g2 = driver.constraint_vals.copy()
-
-        ipopt_log.debug( "g2 = %s" % g1.tolist() )
-
 
         inv_fd_delta = 0.5 / driver.fd_delta
         driver.grad_f[i] = ( f2 - f1 ) * inv_fd_delta
@@ -300,8 +243,6 @@ def eval_grad_f_and_jac_g(x, driver, user_data = None):
         for j in range( ncon ):
             driver.jac_g[j,i] = ( g2[j] - g1[j] ) * inv_fd_delta
 
-
-    ipopt_log.debug("qqq77 driver.jac_g( %s ) = %s" % ( x, driver.jac_g )  )
 
 
     #qqq
@@ -317,17 +258,12 @@ def eval_g(x, driver, user_data= None):
 
 
     if not array_equal( x, driver.last_eval_x ):
-        ipopt_log.debug("Compute new f and g" )
         eval_f_and_eval_g( x, driver )
     else:
-        ipopt_log.debug("Reuse existing eval_g" )
+        pass
 
 
     global jacobian_being_computed
-    if jacobian_being_computed:
-        ipopt_log.debug("x (jacobian) = %s " % x )
-    else:
-        ipopt_log.debug("x = %s " % x )
 
     for i, v in enumerate(driver.get_ineq_constraints().values()):
         val = v.evaluate()
@@ -352,18 +288,12 @@ def eval_g(x, driver, user_data= None):
         val = val.evaluate()
         driver.constraint_vals[i + n_ineq_constraints] = val[0] - val[1]
             
-    ipopt_log.debug("qqq7 returning eval_g( %s ) = %s" % ( x, driver.constraint_vals )  )
-
-
     return driver.constraint_vals
 
     
 def update_constraints( driver):
     '''evaluate constraint functions'''
 
-    ipopt_log.debug("Update constraints" )
-
-        
     for i, v in enumerate(driver.get_ineq_constraints().values()):
         val = v.evaluate()
 
@@ -397,9 +327,6 @@ def eval_jac_g(x, flag, driver, user_data = None):
         #   return (array([0, 0, 0, 0, 1, 1, 1, 1]), 
         #         array([0, 1, 2, 3, 0, 1, 2, 3]))
 
-        ipopt_log.debug("returning array indices" )
-
-        
         nvar = len( x )
         
         irow = array( [[ ]] )
@@ -422,18 +349,9 @@ def eval_jac_g(x, flag, driver, user_data = None):
                          
     else:
  
-
-        ipopt_log.debug("getting jacobian for x = %s " % x )
-        
         if not array_equal( x, driver.last_x ):
-            ipopt_log.debug("qqq77 compute new grad_f and jac_g" )
             eval_grad_f_and_jac_g( x, driver )
             
-        #ipopt_log.debug("jacobian for x = %s is %s" % (x, driver.jac_g.tolist() ) )
-        ipopt_log.debug("jacobian for x = %s is %s" % (x, driver.jac_g ) )
-
-        ipopt_log.debug("qqq77 jac_g( %s ) = %s" % ( x, driver.jac_g )  )
-
         return driver.jac_g
  
 def intermediate_callback(alg_mod, iteration, obj_value, 
@@ -449,11 +367,6 @@ def intermediate_callback(alg_mod, iteration, obj_value,
     # Incrementing the count here gets a true value of the iterations
     #   done by Ipopt
     driver.iter_count += 1
-
-    f = open("junk.out", "a" )
-    f.write( "qqq in callback: iter_count = %d\n" % (driver.iter_count )  )
-    f.close()
-
 
     if driver._stop: 
         return False
@@ -813,9 +726,6 @@ class IPOPTdriver(Driver):
         self.nlp.int_option( 'print_level', self.print_level )
         self.nlp.num_option( 'tol', self.tol )
 
-        ipopt_log.debug( 'Setting max_iter to %d' % self.max_iter )
-        ipopt_log.debug( 'Setting fd_delta to %f' % self.fd_delta )
-        
         self.nlp.int_option( 'max_iter', self.max_iter )
         self.nlp.num_option( 'max_cpu_time', self.max_cpu_time )
         self.nlp.num_option( 'constr_viol_tol', self.constr_viol_tol )
@@ -823,7 +733,6 @@ class IPOPTdriver(Driver):
         self.nlp.str_option( 'linear_solver', self.linear_solver )
         
         for option, value in self.options.iteritems():
-            ipopt_log.debug( 'Setting option %s to %s' % ( option, value ) )
             if isinstance( value, int ):
                 self.nlp.int_option( option, value )
             elif isinstance( value, str ):
@@ -875,7 +784,6 @@ class IPOPTdriver(Driver):
         self.set_parameters(dvals)
 
         # update the model
-        ipopt_log.debug("qqq8 run_iteration" )
         super(IPOPTdriver, self).run_iteration()
 
         
