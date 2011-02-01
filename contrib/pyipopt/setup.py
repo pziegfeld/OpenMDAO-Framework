@@ -29,8 +29,8 @@ else:
         'coinblas',
         ]
 
-config = Configuration(name='ipopt')
-config.add_extension('ipopt',
+config = Configuration(name='pyipopt')
+config.add_extension('pyipopt',
                      sources=['pyipopt.c',
                               'callback.c'],
                      include_dirs=include_dirs,
