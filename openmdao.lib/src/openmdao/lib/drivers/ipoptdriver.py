@@ -120,22 +120,16 @@ def eval_grad_f_and_jac_g(x, driver, user_data = None):
         inv_fd_delta = 0.5 / driver.fd_delta
         driver.grad_f[i] = ( f2 - f1 ) * inv_fd_delta
 
-
         for j in range( ncon ):
             driver.jac_g[j, i] = ( g2[j] - g1[j] ) * inv_fd_delta
-
 
     return 
 
 def eval_g(x, driver, user_data= None):
     '''evaluate constraint functions'''
 
-
-
     if not array_equal( x, driver.last_eval_x ):
         eval_f_and_eval_g( x, driver )
-    else:
-        pass
 
     for i, v in enumerate(driver.get_ineq_constraints().values()):
         val = v.evaluate()
@@ -188,9 +182,6 @@ def eval_jac_g(x, flag, driver, user_data = None):
     Jacobian
     '''
 
-    # not needed. Just wastes time
-    #super(IPOPTdriver, driver).run_iteration()
-    
     ncon = len( driver.get_ineq_constraints() ) + \
            len( driver.get_eq_constraints() )
     
@@ -527,15 +518,11 @@ class IPOPTdriver(Driver):
         """Perform initial setup before iteration loop begins."""
         
         self._config_ipopt()
-        #self.iter_count = 0
         
         # get the initial values of the parameters
         for i, val in enumerate(self.get_parameters().values()):
             self.design_vals[i] = val.expreval.evaluate()
             
-        # perform an initial run for self-consistency
-        #super(IPOPTdriver, self).run_iteration()
-
         # update constraint value array
         for i, v in enumerate(self.get_ineq_constraints().values()):
             val = v.evaluate()
@@ -544,7 +531,6 @@ class IPOPTdriver(Driver):
             else:
                 self.constraint_vals[i] = val[0]-val[1]
         
-
         nvar = len( self.get_parameters().values() )
         x_L = array( [ x.low for x in self.get_parameters().values() ] )
         x_U = array( [ x.high for x in self.get_parameters().values() ] )
@@ -592,13 +578,13 @@ class IPOPTdriver(Driver):
         # Set optimization options
         self.nlp.int_option( 'print_level', self.print_level )
         self.nlp.num_option( 'tol', self.tol )
-
         self.nlp.int_option( 'max_iter', self.max_iter )
         self.nlp.num_option( 'max_cpu_time', self.max_cpu_time )
         self.nlp.num_option( 'constr_viol_tol', self.constr_viol_tol )
         self.nlp.num_option( 'obj_scaling_factor', self.obj_scaling_factor )
         self.nlp.str_option( 'linear_solver', self.linear_solver )
         
+        # Set optimization options set via the options dict
         for option, value in self.options.iteritems():
             if isinstance( value, int ):
                 self.nlp.int_option( option, value )
@@ -612,8 +598,9 @@ class IPOPTdriver(Driver):
                
         # does the Hessian calculation so we do not have to
         self.nlp.str_option( "hessian_approximation", "limited-memory" )
-        # suppresses the copyright banner and all output
+        # this would just turn off copyright banner
         #self.nlp.str_option( "sb", 'yes' )
+        # suppresses all output
         self.nlp.str_option( "suppress_all_output", 'yes' )
         
     def continue_iteration(self):
@@ -645,7 +632,6 @@ class IPOPTdriver(Driver):
             self._logger.error(str(err))
             raise
 
-                        
         # update the parameters in the model
         dvals = [float(val) for val in self.design_vals]
         self.set_parameters(dvals)
