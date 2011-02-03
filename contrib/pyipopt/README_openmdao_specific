@@ -20,3 +20,11 @@ how this would be done on a Linux machine.
     export COIN_INCLUDE_DIR=/home/username/local/include/coin/
     export COIN_LIB_DIR=/home/username/local/lib/coin/
     export COIN_THIRDPARTY_LIB_DIR=/home/username/local/lib/coin/ThirdParty
+
+This version of Pyipopt and Ipopt was tested using following third party libraries:
+
+     BLAS
+     LAPACK
+     METIS
+     MUMPS Linear Solver
+     Harwell Subroutine Library - ma27ad.f and mc19ad.f
