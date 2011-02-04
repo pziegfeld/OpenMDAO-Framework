@@ -57,7 +57,7 @@ def eval_f_and_eval_g(x, driver, user_data = None):
     Cache results
     '''
 
-    driver.last_eval_x = x.copy()
+    driver.last_x_eval_f_and_g = x.copy()
 
     # update the design variables in the model
     driver.set_parameters(x)
@@ -69,12 +69,22 @@ def eval_f_and_eval_g(x, driver, user_data = None):
 def eval_f(x, driver, user_data = None):
     '''evaluate objective function'''
 
-    if not array_equal( x, driver.last_eval_x ):
+    if not array_equal( x, driver.last_x_eval_f_and_g ):
         eval_f_and_eval_g( x, driver )
 
     obj = driver.eval_objective()
 
     return obj
+
+def eval_g(x, driver, user_data= None):
+    '''evaluate constraint functions'''
+
+    if not array_equal( x, driver.last_x_eval_f_and_g ):
+        eval_f_and_eval_g( x, driver )
+
+    driver.update_constraints( )
+
+    return driver.constraint_vals
 
 
 def eval_grad_f(x, driver, user_data = None):
@@ -83,7 +93,7 @@ def eval_grad_f(x, driver, user_data = None):
     Use the gradient function above
     '''
 
-    if not array_equal( x, driver.last_x ):
+    if not array_equal( x, driver.last_x_eval_grad_f_and_jac_g ):
         eval_grad_f_and_jac_g( x, driver )
 
     return driver.grad_f
@@ -94,7 +104,7 @@ def eval_grad_f_and_jac_g(x, driver, user_data = None):
     Cache results
     '''
 
-    driver.last_x = x.copy()
+    driver.last_x_eval_grad_f_and_jac_g = x.copy()
 
     nvar = len( x ) 
     driver.grad_f = zeros(nvar, 'd')
@@ -106,7 +116,7 @@ def eval_grad_f_and_jac_g(x, driver, user_data = None):
         xtmp[i] -= driver.fd_delta
         f1 = eval_f( xtmp, driver ) # this runs the model at xtmp
 
-        update_constraints( driver)
+        driver.update_constraints()
         # While we are at it, get the constraints too
         g1 = driver.constraint_vals.copy()
 
@@ -114,7 +124,7 @@ def eval_grad_f_and_jac_g(x, driver, user_data = None):
         xtmp[i] += driver.fd_delta
         f2 = eval_f( xtmp, driver )
 
-        update_constraints( driver)
+        driver.update_constraints()
         g2 = driver.constraint_vals.copy()
 
         inv_fd_delta = 0.5 / driver.fd_delta
@@ -124,56 +134,6 @@ def eval_grad_f_and_jac_g(x, driver, user_data = None):
             driver.jac_g[j, i] = ( g2[j] - g1[j] ) * inv_fd_delta
 
     return 
-
-def eval_g(x, driver, user_data= None):
-    '''evaluate constraint functions'''
-
-    if not array_equal( x, driver.last_eval_x ):
-        eval_f_and_eval_g( x, driver )
-
-    for i, v in enumerate(driver.get_ineq_constraints().values()):
-        val = v.evaluate()
-
-        # OpenMDAO accepts inequalities in any form, e.g.
-        #    x1 > x2 + 5
-        #    x1 + x2 < 22
-        #
-        # Need to take that kind of equation and put it in a form that
-        #  Ipopt wants. The simplest way is to handle this is to
-        #  turn those into
-        #    x1 -x2 - 5 > 0
-        #    x1 + x2 - 22 > 0
-        #  
-        if '>' in val[2]:
-            driver.constraint_vals[i] = -(val[1]-val[0])
-        else:
-            driver.constraint_vals[i] = -(val[0]-val[1])
-
-    n_ineq_constraints = len( driver.get_ineq_constraints().values())
-    for i, val in enumerate(driver.get_eq_constraints().values()):
-        val = val.evaluate()
-        driver.constraint_vals[i + n_ineq_constraints] = val[0] - val[1]
-            
-    return driver.constraint_vals
-
-    
-def update_constraints( driver):
-    '''evaluate constraint functions'''
-
-    for i, v in enumerate(driver.get_ineq_constraints().values()):
-        val = v.evaluate()
-
-        if '>' in val[2]:
-            driver.constraint_vals[i] = -(val[1]-val[0])
-        else:
-            driver.constraint_vals[i] = -(val[0]-val[1])
-
-    n_ineq_constraints = len( driver.get_ineq_constraints().values())
-    for i, val in enumerate(driver.get_eq_constraints().values()):
-        val = val.evaluate()
-        driver.constraint_vals[i + n_ineq_constraints] = val[0] - val[1]
-            
-    return driver.constraint_vals
 
     
 def eval_jac_g(x, flag, driver, user_data = None):
@@ -212,7 +172,7 @@ def eval_jac_g(x, flag, driver, user_data = None):
                          
     else:
  
-        if not array_equal( x, driver.last_x ):
+        if not array_equal( x, driver.last_x_eval_grad_f_and_jac_g ):
             eval_grad_f_and_jac_g( x, driver )
             
         return driver.jac_g
@@ -511,8 +471,8 @@ class IPOPTdriver(Driver):
         self.zl = None        
         self.zu = None        
 
-        self.last_x = None
-        self.last_eval_x = None
+        self.last_x_eval_grad_f_and_jac_g = None
+        self.last_x_eval_f_and_g = None
 
     def start_iteration(self):
         """Perform initial setup before iteration loop begins."""
@@ -523,13 +483,7 @@ class IPOPTdriver(Driver):
         for i, val in enumerate(self.get_parameters().values()):
             self.design_vals[i] = val.expreval.evaluate()
             
-        # update constraint value array
-        for i, v in enumerate(self.get_ineq_constraints().values()):
-            val = v.evaluate()
-            if '>' in val[2]:
-                self.constraint_vals[i] = val[1]-val[0]
-            else:
-                self.constraint_vals[i] = val[0]-val[1]
+        self.update_constraints()
         
         nvar = len( self.get_parameters().values() )
         x_L = array( [ x.low for x in self.get_parameters().values() ] )
@@ -665,3 +619,32 @@ class IPOPTdriver(Driver):
         self.constraint_vals = zeros(length, 'd')
         
 
+    def update_constraints( self ):
+        '''evaluate constraint functions'''
+    
+        for i, v in enumerate(self.get_ineq_constraints().values()):
+            val = v.evaluate()
+    
+            # OpenMDAO accepts inequalities in any form, e.g.
+            #    x1 > x2 + 5
+            #    x1 + x2 < 22
+            #
+            # Need to take that kind of equation and put it in a form that
+            #  Ipopt wants. The simplest way is to handle this is to
+            #  turn those into
+            #    x1 -x2 - 5 > 0
+            #    x1 + x2 - 22 > 0
+            #  
+            if '>' in val[2]:
+                self.constraint_vals[i] = -(val[1]-val[0])
+            else:
+                self.constraint_vals[i] = -(val[0]-val[1])
+    
+        n_ineq_constraints = len( self.get_ineq_constraints().values())
+        for i, val in enumerate(self.get_eq_constraints().values()):
+            val = val.evaluate()
+            self.constraint_vals[i + n_ineq_constraints] = val[0] - val[1]
+                
+        return
+    
+    
