@@ -497,7 +497,8 @@ class IPOPTdriver(Driver):
         # For the equality constraints, both g_l and g_u are set to zero.
         g_L = zeros( ncon, 'd')
         g_U = zeros( ncon, 'd')
-        g_U = ones( n_ineq_con, 'd') * sys.float_info.max
+        for i in range( n_ineq_con ):
+            g_U[i] = sys.float_info.max
 
         nnzj = nvar * ncon # number of non zeros in Jacobian
                            # of constraints. Assumed to be dense
