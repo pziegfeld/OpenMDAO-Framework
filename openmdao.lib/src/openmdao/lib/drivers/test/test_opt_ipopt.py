@@ -850,6 +850,7 @@ if __name__ == "__main__":
     suite.addTest(unittest.makeSuite(IPOPTdriverConstrainedBettsTestCase))
     suite.addTest(unittest.makeSuite(IPOPTdriverRosenSuzukiTestCase))
     suite.addTest(unittest.makeSuite(IPOPTdriverExample1FromManualTestCase))
+    suite.addTest(unittest.makeSuite(IPOPTdriverParaboloidWithLinearEqualityTestCase))
 
     results = unittest.TextTestRunner(verbosity=2).run(suite)
 
