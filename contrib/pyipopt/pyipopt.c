@@ -554,14 +554,7 @@ PyObject *solve(PyObject *self, PyObject *args)
   status = IpoptSolve(nlp, newx0, NULL, &obj, NULL, (double*)mL->data, (double*)mU->data, (UserDataPtr)bigfield);
   /*  The final parameter is the userdata (void * type) */
   
-  /*  For status code, see: IpReturnCodes_inc.h  */
-  if ( status == OptimizeTNLP_Exception_Thrown ) 
-    {
-      PyErr_SetString(PyExc_RuntimeError, "Ipopt failed due to exception in OptimizeTNLP");
-      retval = NULL ;
-      goto done ;
-    }
-
+  /*  For status code, see IpReturnCodes_inc.h in Ipopt */
   if (status == Solve_Succeeded || status == Solved_To_Acceptable_Level ) 
     {
       double* xdata = (double*) x->data;
