@@ -554,14 +554,10 @@ PyObject *solve(PyObject *self, PyObject *args)
   status = IpoptSolve(nlp, newx0, NULL, &obj, NULL, (double*)mL->data, (double*)mU->data, (UserDataPtr)bigfield);
   /*  The final parameter is the userdata (void * type) */
   
-  /*  For status code, see IpReturnCodes_inc.h in Ipopt */
-  if (status == Solve_Succeeded || status == Solved_To_Acceptable_Level ) 
-    {
-      double* xdata = (double*) x->data;
-      for (i =0; i< n; i++)
-        xdata[i] = newx0[i];
-      /*  FreeIpoptProblem(nlp); */
-    }
+  double* xtmp = (double*) x->data;
+  for (i =0; i< n; i++)
+    xtmp[i] = newx0[i];
+  /*  FreeIpoptProblem(nlp); */
 
   retval = Py_BuildValue( 
                          "NNNdO",
