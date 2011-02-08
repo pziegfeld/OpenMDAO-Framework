@@ -544,11 +544,11 @@ follows:
             # add DrivingSim to workflow
             driver.workflow.add('driving_sim')
         
-            # CONMIN Design Variables 
+            # Design Variables 
             self.driver.add_parameter('driving_sim.spark_angle', low=-50. , high=10.)
             self.driver.add_parameter('driving_sim.bore', low=65. , high=100.)
 
-            # CONMIN Objective = Maximize weighted sum of EPA city and highway fuel economy 
+            # Objective = Maximize weighted sum of EPA city and highway fuel economy 
             self.driver.add_objective('-(.93*driving_sim.EPA_city + 1.07*driving_sim.EPA_highway)')
 
 This first section of code defines an assembly called *EngineOptimization.*
@@ -725,6 +725,197 @@ g0         Initial value of the transition parameter    0.1
 =========  ===========================================  =======
 
 (See the source documentation for more information on the :ref:`NEWSUMTDriver<openmdao.lib.drivers.newsumtdriver.py>`.)
+
+
+.. index:: IPOPTDriver
+
+.. _IPOPTDriver:
+
+IPOPTDriver
+~~~~~~~~~~~~~~
+
+:term:`Ipopt <https://projects.coin-or.org/Ipopt>`_ (Interior Point OPTimizer, pronounced eye-pea-Opt) is a software 
+package for large-scale  nonlinear optimization. IPOPT implements an interior point line search 
+filter method that aims to find a local solution of mathematical optimization problems. Ipopt supports 
+both inequality and equality constraints.
+
+More information on IPOPT can be found in the `IPOPT Documentation <http://www.coin-or.org/Ipopt/documentation/>`.
+
+
+*Basic Interface*
++++++++++++++++++
+
+The Ipopt library itself requires callback functions for the objective function, 
+objective function gradient, constraints, and the constraint
+Jacobian. The OpenMDAO driver that wraps Ipopt
+handles the calculation of the objective gradient and the constraint Jacobian
+using simple two-point finite difference. So to use the Ipopt
+driver in OpenMDAO, the user only needs to specify an objective function, 
+constraints and one or more decision variables using the
+standard OpenMDAO driver API, which is discussed in 
+:ref:`Driver-API`. ( Actually, Ipopt can optionally make use of a callback function
+to compute the Hessian of the objective. The Ipopt driver does not make use of that
+callback and does not allow the user to set it as an option. )
+
+The OpenMDAO IPOPT driver can be imported from ``openmdao.lib.drivers.api``.
+
+.. testcode:: IPOPT_load
+
+    from openmdao.lib.drivers.api import IPOPTdriver
+
+Typically, IPOPT will be used as a driver in the top level assembly, though it
+can be also used in a subassembly as part of a nested driver scheme. Using the
+OpenMDAO script interface, a simple optimization problem can be set up as
+follows:
+
+.. testcode:: IPOPT_load
+
+    from openmdao.main.api import Assembly
+    from openmdao.lib.drivers.api import IPOPTdriver
+
+    class EngineOptimization(Assembly):
+        """ Top level assembly for optimizing a vehicle. """
+    
+        def __init__(self):
+            """ Creates a new Assembly containing a DrivingSim and an optimizer"""
+        
+            super(EngineOptimization, self).__init__()
+
+            # Create DrivingSim component instances
+            self.add('driving_sim', DrivingSim())
+
+            # Create IPOPT Optimizer instance
+            self.add('driver', IPOPTdriver())
+        
+            # add DrivingSim to workflow
+            driver.workflow.add('driving_sim')
+        
+            # Design Variables 
+            self.driver.add_parameter('driving_sim.spark_angle', low=-50. , high=10.)
+            self.driver.add_parameter('driving_sim.bore', low=65. , high=100.)
+
+            # Objective = Maximize weighted sum of EPA city and highway fuel economy 
+            self.driver.add_objective('-(.93*driving_sim.EPA_city + 1.07*driving_sim.EPA_highway)')
+
+            # Set some options
+            self.driver.fd_delta = 0.00001
+            self.driver.options = {'diverging_iterates_tol':1.0e10,}
+
+
+This first section of code defines an assembly called *EngineOptimization.*
+This assembly contains a DrivingSim component and a Ipopt driver, both of
+which are created and added inside the ``__init__`` function with ``add``. The
+DrivingSim component is also added to the driver's workflow. The objective
+function, design variables, constraints, and any Ipopt parameters are also
+assigned in the ``__init__`` function. The specific syntax for all of these is
+discussed in :ref:`Driver-API`.
+
+
+*Basic Options for Ipopt Library*
+++++++++++++++++++++++++++++++++
+
+This section contains the basic parameters for Ipopt. For greater detail on all these 
+parameters, 
+see the `<http://www.coin-or.org/Ipopt/documentation/node59.html>Ipopt Options Reference`_. 
+
+Ipopt uses many options to decide when the optimization algorithm has
+converged. The most basic of those is the convergence tolerance which has a
+default of 1.0e-8.
+
+.. testcode:: IPOPT_show
+
+        self.driver.tol = 1.0e-6
+
+.. note::
+   The algorithm terminates if the scaled NLP error becomes
+   smaller than this value and if additional conditions
+   (see Ipopt manual) are met.
+
+Ipopt lets you set a limit on the number of iterations. 
+The default is 3000.
+
+.. testcode:: IPOPT_show
+
+        self.driver.max_iter = 100
+
+
+Similarly, IPOPT has an option to limit the computation
+by CPU time, in seconds. The default is 1.0e6.
+
+
+.. testcode:: IPOPT_show
+
+        self.driver.max_cpu = 1000
+
+The desired threshold for the constraint violation can be set. 
+The default is 0.0001.
+
+.. testcode:: IPOPT_show
+
+        self.driver.constr_viol_tol = .01
+
+.. note::
+   Absolute tolerance on the constraint violation. Successful
+   termination requires that the max-norm of the (unscaled) constraint
+   violation is less than this threshold. The valid range for this
+   real option is 0 < constr_viol_tol < infinity.
+
+
+An option named obj_scaling_factor can be used to set
+the scaling factor for the objective function. The default is 1.0.
+
+.. testcode:: IPOPT_show
+
+        self.driver.obj_scaling_factor = 100.0
+
+.. note::
+   The scaling is seen internally by Ipopt but the unscaled objective
+   is reported in the console output. If additional scaling parameters
+   are computed (e.g. user-scaling or gradient-based), both factors
+   are multiplied. If this value is chosen to be negative, Ipopt will
+   maximize the objective function instead of minimizing it. The valid
+   range for this real option is -inf < obj_scaling_factor < +inf.
+
+
+The *print_level* option can be set to specify the verbosity
+of output from the Ipopt library. The value can range from 0 to
+12. A value of 0 suppresses all output. 
+Higher values of *print_level* turn on the display 
+of more levels of output.
+
+
+.. testcode:: IPOPT_show
+
+        self.driver.print_level = 0
+
+
+*Additional Option Provided by Ipopt Driver*
+++++++++++++++++++++++++++++++++
+
+The Ipopt driver provides an option to set
+the delta used by the two-point finite difference
+calculation to compute the object gradients and the
+constraint Jacobian. The default is 0.001.
+
+.. testcode:: IPOPT_show
+
+        self.driver.fd_delta = 0.00001
+
+*Advanced Options* 
+++++++++++++++++++ 
+
+The remaining options for the Ipopt library are set using 
+a driver attribute named options which is a Python dictionary. 
+
+.. testcode:: IPOPT_show
+
+        self.driver.options = {'derivative_test':'first-order', 'diverging_iterates_tol':1.0e10,}
+
+.. note::
+   For documentation on these
+    options, see the `<http://www.coin-or.org/Ipopt/documentation/node59.html>Ipopt Options Reference`. 
+
+(See the source documentation for more information on the :ref:`IPOPTDriver<openmdao.lib.drivers.ipoptdriver.py>`.)
 
 
 .. index:: DOEdriver, design of experiments
