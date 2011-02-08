@@ -585,7 +585,7 @@ class IPOPTdriverParaboloidWithLinearEqualityTestCase(unittest.TestCase):
 
         self.top = None
 
-    def test_opt1(self):
+    def test_just_one_equality_constraint(self):
 
         self.top.driver.add_objective( 'comp.result' )
         
@@ -597,6 +597,28 @@ class IPOPTdriverParaboloidWithLinearEqualityTestCase(unittest.TestCase):
         map(self.top.driver.add_constraint,[
             'comp.x[0] - 4.0 = 0.0',
             ] )
+        self.top.run()
+        self.assertAlmostEqual(4.0, 
+                               self.top.driver.eval_objective(), places=2)
+        self.assertAlmostEqual(4.0,
+                               self.top.comp.x[0], places=2)
+        self.assertAlmostEqual(3.0,
+                               self.top.comp.x[1], places=2)
+
+    def test_one_equality_one_inequality_constraint(self):
+
+        self.top.driver.add_objective( 'comp.result' )
+        
+        self.top.driver.add_parameters( [
+            ('comp.x[0]', -100.0, 100.0),
+            ('comp.x[1]', -100.0, 100.0),
+            ] )
+
+        map(self.top.driver.add_constraint,[
+            'comp.x[0] - 4.0 = 0.0',
+            '- ( comp.x[0] - 2.0 )**2 - ( comp.x[1] - 3.0 )**2 + 4.0 > 0.0',
+            ] )
+        
         self.top.run()
         self.assertAlmostEqual(4.0, 
                                self.top.driver.eval_objective(), places=2)
