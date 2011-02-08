@@ -734,12 +734,12 @@ g0         Initial value of the transition parameter    0.1
 IPOPTDriver
 ~~~~~~~~~~~~~~
 
-:term:`Ipopt <https://projects.coin-or.org/Ipopt>`_ (Interior Point OPTimizer, pronounced eye-pea-Opt) is a software 
-package for large-scale  nonlinear optimization. IPOPT implements an interior point line search 
+:term:`Ipopt` (Interior Point OPTimizer, pronounced eye-pea-Opt) is a software 
+package for large-scale  nonlinear optimization. Ipopt implements an interior point line search 
 filter method that aims to find a local solution of mathematical optimization problems. Ipopt supports 
 both inequality and equality constraints.
 
-More information on IPOPT can be found in the `IPOPT Documentation <http://www.coin-or.org/Ipopt/documentation/>`.
+More information on IPOPT can be found in the `IPOPT Documentation <http://www.coin-or.org/Ipopt/documentation/>`_.
 
 
 *Basic Interface*
@@ -748,12 +748,12 @@ More information on IPOPT can be found in the `IPOPT Documentation <http://www.c
 The Ipopt library itself requires callback functions for the objective function, 
 objective function gradient, constraints, and the constraint
 Jacobian. The OpenMDAO driver that wraps Ipopt
-handles the calculation of the objective gradient and the constraint Jacobian
+handles the calculation of the objective gradient and the constraints Jacobian
 using simple two-point finite difference. So to use the Ipopt
 driver in OpenMDAO, the user only needs to specify an objective function, 
 constraints and one or more decision variables using the
 standard OpenMDAO driver API, which is discussed in 
-:ref:`Driver-API`. ( Actually, Ipopt can optionally make use of a callback function
+:ref:`Driver-API`. ( Actually, the Ipopt library can optionally make use of a callback function
 to compute the Hessian of the objective. The Ipopt driver does not make use of that
 callback and does not allow the user to set it as an option. )
 
@@ -812,15 +812,15 @@ discussed in :ref:`Driver-API`.
 
 
 *Basic Options for Ipopt Library*
-++++++++++++++++++++++++++++++++
++++++++++++++++++++++++++++++++++
 
 This section contains the basic parameters for Ipopt. For greater detail on all these 
 parameters, 
-see the `<http://www.coin-or.org/Ipopt/documentation/node59.html>Ipopt Options Reference`_. 
+see the `Ipopt Options Reference <http://www.coin-or.org/Ipopt/documentation/node59.html>`_. 
 
 Ipopt uses many options to decide when the optimization algorithm has
-converged. The most basic of those is the convergence tolerance which has a
-default of 1.0e-8.
+converged. The most basic is the convergence tolerance option, *tol*, 
+which has a default of 1.0e-8.
 
 .. testcode:: IPOPT_show
 
@@ -832,7 +832,7 @@ default of 1.0e-8.
    (see Ipopt manual) are met.
 
 Ipopt lets you set a limit on the number of iterations. 
-The default is 3000.
+The default value for *max_iter* is 3000.
 
 .. testcode:: IPOPT_show
 
@@ -840,14 +840,15 @@ The default is 3000.
 
 
 Similarly, IPOPT has an option to limit the computation
-by CPU time, in seconds. The default is 1.0e6.
+by CPU time, in seconds, using the *max_cpu* option. The default is 1.0e6.
 
 
 .. testcode:: IPOPT_show
 
         self.driver.max_cpu = 1000
 
-The desired threshold for the constraint violation can be set. 
+The desired threshold for the constraint violation can be set 
+using the *constr_viol_tol* option.
 The default is 0.0001.
 
 .. testcode:: IPOPT_show
@@ -861,7 +862,7 @@ The default is 0.0001.
    real option is 0 < constr_viol_tol < infinity.
 
 
-An option named obj_scaling_factor can be used to set
+An option named *obj_scaling_factor* can be used to set
 the scaling factor for the objective function. The default is 1.0.
 
 .. testcode:: IPOPT_show
@@ -874,7 +875,7 @@ the scaling factor for the objective function. The default is 1.0.
    are computed (e.g. user-scaling or gradient-based), both factors
    are multiplied. If this value is chosen to be negative, Ipopt will
    maximize the objective function instead of minimizing it. The valid
-   range for this real option is -inf < obj_scaling_factor < +inf.
+   range for this real option is -infinity < obj_scaling_factor < +infinity.
 
 
 The *print_level* option can be set to specify the verbosity
@@ -890,12 +891,12 @@ of more levels of output.
 
 
 *Additional Option Provided by Ipopt Driver*
-++++++++++++++++++++++++++++++++
+++++++++++++++++++++++++++++++++++++++++++++
 
-The Ipopt driver provides an option to set
+The Ipopt driver provides an option, *fd_delta*, to set
 the delta used by the two-point finite difference
 calculation to compute the object gradients and the
-constraint Jacobian. The default is 0.001.
+constraints Jacobian. The default is 0.001.
 
 .. testcode:: IPOPT_show
 
@@ -905,15 +906,14 @@ constraint Jacobian. The default is 0.001.
 ++++++++++++++++++ 
 
 The remaining options for the Ipopt library are set using 
-a driver attribute named options which is a Python dictionary. 
+a driver attribute named *options* which is a Python dictionary. 
 
 .. testcode:: IPOPT_show
 
         self.driver.options = {'derivative_test':'first-order', 'diverging_iterates_tol':1.0e10,}
 
 .. note::
-   For documentation on these
-    options, see the `<http://www.coin-or.org/Ipopt/documentation/node59.html>Ipopt Options Reference`. 
+   For documentation on these options, see the `Ipopt Options Reference <http://www.coin-or.org/Ipopt/documentation/node59.html>`_. 
 
 (See the source documentation for more information on the :ref:`IPOPTDriver<openmdao.lib.drivers.ipoptdriver.py>`.)
 
