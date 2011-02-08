@@ -12,6 +12,18 @@ from pyparsing import CaselessLiteral, Combine, OneOrMore, Optional, \
 # pylint: disable-msg=E0611,F0401
 from numpy import append, array, zeros
 
+def _getformat(val):
+    # Returns the output format for a floating point number.
+    # The general format is used with 16 places of accuracy, except for when
+    # the floating point value is an integer, in which case a decimal point
+    # followed by a single zero is used.
+    
+    if int(val) == val:
+        return "%.1f"
+    else:
+        return "%.16g"
+
+
 class _SubHelper(object):
     """Replaces file text at the correct word location in a line. This
     class contains the Helper Function that is passed to re.sub, etc."""
@@ -50,7 +62,7 @@ class _SubHelper(object):
         
         if self.current_location == self.replace_location:
             if isinstance(self.newtext, float):
-                return '%.16g' % self.newtext
+                return _getformat(self.newtext) % self.newtext
             else:
                 return str(self.newtext)
         else:
@@ -68,7 +80,8 @@ class _SubHelper(object):
            self.current_location <= self.end_location and \
            self.counter < end:
             if isinstance(self.newtext[self.counter], float):
-                return '%.16g' % self.newtext[self.counter]
+                val = self.newtext[self.counter]
+                newval = _getformat(val) % val
             else:
                 newval = str(self.newtext[self.counter])
             self.counter += 1
@@ -87,8 +100,20 @@ class ToFloat(TokenConverter):
     """Converter for PyParsing that is used to turn a token into a float."""
     def postParse( self, instring, loc, tokenlist ):
         """Converter to make token into a float."""
-        return float(tokenlist[0])
+        return float(tokenlist[0].replace('D', 'E'))
 
+class ToNan(TokenConverter):
+    """Converter for PyParsing that is used to turn a token into Python nan."""
+    def postParse( self, instring, loc, tokenlist ):
+        """Converter to make token into Python nan."""
+        return float('nan')
+    
+class ToInf(TokenConverter):
+    """Converter for PyParsing that is used to turn a token into Python inf."""
+    def postParse( self, instring, loc, tokenlist ):
+        """Converter to make token into Python inf."""
+        return float('inf')
+    
     
 def _parse_line():
     """Parse a single data line that may contain string or numerical data.
@@ -98,7 +123,7 @@ def _parse_line():
     digits = Word(nums)
     dot = "."
     sign = oneOf("+ -")
-    ee = CaselessLiteral('E')
+    ee = CaselessLiteral('E') | CaselessLiteral('D')
 
     num_int = ToInteger(Combine( Optional(sign) + digits ))
     
@@ -111,12 +136,14 @@ def _parse_line():
     # special case for a float written like "3e5"
     mixed_exp = ToFloat(Combine( digits + ee + Optional(sign) + digits ))
     
-    nan = ToFloat(oneOf("NaN Inf -Inf"))
+    nan = ToInf(oneOf("Inf -Inf")) | \
+          ToNan(oneOf("NaN nan NaN%  NaNQ NaNS qNaN sNaN " + \
+                        "1.#SNAN 1.#QNAN -1.#IND"))
     
     # sep = Literal(" ") | Literal("\n")
     
-    data = ( OneOrMore( (num_float | mixed_exp | num_int | 
-                         nan | Word(printables)) ) )
+    data = ( OneOrMore( (nan | num_float | mixed_exp | num_int |
+                         Word(printables)) ) )
     
     return data
 
@@ -242,7 +269,7 @@ class InputFileGenerator(object):
             array of values to insert.
         
         row_start: integer
-	    starting row for inserting the array. This is relative
+            starting row for inserting the array. This is relative
             to the anchor, and can be negative.
         
         field_start: integer
@@ -283,7 +310,6 @@ class InputFileGenerator(object):
         # This is resolved by adding more fields at the end
         if sub.counter < len(value):
             for val in value[sub.counter:]:
-                
                 newline = newline.rstrip() + sep + str(val)
         
             self.data[j] = newline

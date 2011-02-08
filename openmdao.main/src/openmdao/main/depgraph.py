@@ -4,8 +4,8 @@ import sys
 import StringIO
 
 import networkx as nx
-from networkx.algorithms.traversal import topological_sort_recursive, \
-                                          strongly_connected_components
+from networkx.algorithms.dag import topological_sort_recursive,is_directed_acyclic_graph
+from networkx.algorithms.components import strongly_connected_components
 
 
 class AlreadyConnectedError(RuntimeError):
@@ -188,14 +188,14 @@ class DependencyGraph(object):
             return None
 
     def in_links(self, cname):
-        """Return a list of the form [(compname,link), (compname2,link2)...]
+        """Return a list of the form [(compname, link), (compname2, link2)...]
         containing each incoming link to the given component and the name
         of the connected component.
         """
         return [(u,data['link']) for u,v,data in self._graph.in_edges(cname, data=True)]
     
     def out_links(self, cname):
-        """Return a list of the form [(compname,link), (compname2,link2)...]
+        """Return a list of the form [(compname, link), (compname2, link2)...]
         containing each outgoing link from the given component and the name
         of the connected component.
         """
@@ -287,7 +287,7 @@ class DependencyGraph(object):
                 link=_Link(srccompname, destcompname)
                 graph.add_edge(srccompname, destcompname, link=link)
             
-            if topological_sort_recursive(graph):
+            if is_directed_acyclic_graph(graph):
                 link.connect(srcvarname, destvarname)
             else:   # cycle found
                 # do a little extra work here to give more info to the user in the error message
@@ -311,7 +311,7 @@ class DependencyGraph(object):
         return conns
     
     def _var_connections(self, path):
-        """Returns a list of tuples of the form (srcpath,destpath) for all
+        """Returns a list of tuples of the form (srcpath, destpath) for all
         connections to and from the specified variable.
         """
         conns = []
@@ -334,7 +334,7 @@ class DependencyGraph(object):
         return conns
     
     def connections_to(self, path):
-        """Returns a list of tuples of the form (srcpath,destpath) for
+        """Returns a list of tuples of the form (srcpath, destpath) for
         all connections between the variable or component specified
         by *path*.
         """

@@ -132,7 +132,7 @@ def case_db_to_dict(dbname, varnames, case_sql='', var_sql='', include_errors=Fa
         The name of the sqlite DB file.
         
     varnames: list[str]
-        iterator of names of variables to be retrieved.
+        Iterator of names of variables to be retrieved.
         
     case_sql: str (optional)
         SQL syntax that will be placed in the WHERE clause for Case retrieval.
@@ -141,7 +141,7 @@ def case_db_to_dict(dbname, varnames, case_sql='', var_sql='', include_errors=Fa
         SQL syntax that will be placed in the WHERE clause for variable retrieval.
     
     include_errors: bool (optional) [False]
-        if True, include data from cases that reported an error
+        If True, include data from cases that reported an error.
         
     """
     varnames = set(varnames)
@@ -309,15 +309,15 @@ def cmdlineXYplot():
                       help="database filename")
     parser.add_option("-t", "--title", action="store", type="string", dest="title",
                       help="plot title",)
-    parser.add_option("", "--xlabel", action="store", type="string", dest="xlabel",
+    parser.add_option("--xlabel", action="store", type="string", dest="xlabel",
                       help="x axis label")
-    parser.add_option("", "--ylabel", action="store", type="string", dest="ylabel",
+    parser.add_option("--ylabel", action="store", type="string", dest="ylabel",
                       help="y axis label")
     parser.add_option("-g", "--grid", action="store_true", dest="grid",
                       help="makes grid visible")
-    parser.add_option("", "--cases", action="store", type="string", dest="case_sql",
+    parser.add_option("--cases", action="store", type="string", dest="case_sql",
                       help="sql syntax to select certain cases")
-    parser.add_option("", "--vars", action="store", type="string", dest="var_sql",
+    parser.add_option("--vars", action="store", type="string", dest="var_sql",
                       help="sql syntax to select certain vars")
     parser.add_option("-l", "--list", action="store_true", dest="listvars",
                       help="lists names of variables found in the database")
