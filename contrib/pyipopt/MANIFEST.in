@@ -1,1 +1,1 @@
-include callback.c hook.h IpReturnCodes_inc.h IpStdCInterface.cpp makefile pyipopt.c README 
+include callback.c hook.h pyipopt.c README 
