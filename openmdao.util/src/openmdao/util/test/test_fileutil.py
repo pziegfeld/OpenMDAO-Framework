@@ -3,6 +3,7 @@ Test File Utility Functions
 """
 
 import os
+import platform
 import stat
 import shutil
 import logging
@@ -89,8 +90,13 @@ class FileUtilTestCase(unittest.TestCase):
     def test_find_exe( self ) :
         # Look for file that does exists but is not executable
         test_existing_file_path =  os.path.join( self.tempdir, "top/foo", "bar.exe" )
-        found_path = find_exe( test_existing_file_path ) 
-        self.assertEqual(  found_path, None )
+        found_path = find_exe( test_existing_file_path )
+        # On Windows there is no executable permission bit so
+        #   the test file will be considered to be executable
+        if platform.system() == "Windows" :
+            self.assertEqual(  found_path, test_existing_file_path )
+        else:
+            self.assertEqual(  found_path, None )
 
         # Look for same file but make it executable first
         os.chmod( test_existing_file_path, stat.S_IEXEC )
