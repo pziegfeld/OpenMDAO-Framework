@@ -235,3 +235,25 @@ def build_directory(dct, force=False, topdir='.'):
                         f.write(val)
     finally:
         os.chdir(startdir)
+
+
+def find_exe(program_path):
+    '''
+    Find the full path to an executable. Works similar to the Linux which command.
+    Adapted from http://stackoverflow.com/questions/377017/test-if-executable-exists-in-python
+    '''
+    
+    def is_exe(fpath):
+        return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
+
+    fpath, fname = os.path.split(program_path)
+    if fpath:
+        if is_exe(program_path):
+            return program_path
+    else:
+        for path in os.environ["PATH"].split(os.pathsep):
+            exe_file = os.path.join(path, program_path)
+            if is_exe(exe_file):
+                return exe_file
+
+    return None

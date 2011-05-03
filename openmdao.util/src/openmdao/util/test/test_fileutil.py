@@ -3,6 +3,7 @@ Test File Utility Functions
 """
 
 import os
+import stat
 import shutil
 import logging
 import os.path
@@ -11,7 +12,7 @@ import unittest
 import tempfile
 from fnmatch import fnmatch
 
-from openmdao.util.fileutil import find_in_path, build_directory, find_files
+from openmdao.util.fileutil import find_in_path, build_directory, find_files, find_exe
 
 structure = {
     'top': {
@@ -34,7 +35,7 @@ class FileUtilTestCase(unittest.TestCase):
 
     def tearDown(self):
         os.chdir(self.startdir)
-        shutil.rmtree(self.tempdir)
+        #shutil.rmtree(self.tempdir)
 
     def test_find_in_path(self):
         if sys.platform == 'win32':
@@ -76,6 +77,42 @@ class FileUtilTestCase(unittest.TestCase):
         self.assertEqual(set([os.path.basename(f) for f in flist]), 
                          set([]))
         
+        # /tmp/tmp3QnGmp/
+        # /tmp/tmp3QnGmp/top
+        # /tmp/tmp3QnGmp/top/somedir
+        # /tmp/tmp3QnGmp/top/somedir/dir2
+        # /tmp/tmp3QnGmp/top/foo
+        # /tmp/tmp3QnGmp/top/foo/bar.exe
+        # /tmp/tmp3QnGmp/top/blah
+        # /tmp/tmp3QnGmp/top/blah/somefile
+        
+    def test_find_exe( self ) :
+        # Look for file that does exists but is not executable
+        test_existing_file_path =  os.path.join( self.tempdir, "top/foo", "bar.exe" )
+        found_path = find_exe( test_existing_file_path ) 
+        self.assertEqual(  found_path, None )
+
+        # Look for same file but make it executable first
+        os.chmod( test_existing_file_path, stat.S_IEXEC )
+        found_path = find_exe( test_existing_file_path ) 
+        self.assertEqual(  found_path, test_existing_file_path )
+
+        # Look for file that does not exist
+        test_nonexisting_file_path =  os.path.join( self.tempdir, "top/not_there", "bar.exe" )
+        found_path = find_exe( test_nonexisting_file_path ) 
+        self.assertEqual(  found_path, None )
+
+        # Look for file using a relative path but
+        #   at first it is not on the PATH
+        test_file_path_relative = "bar.exe"
+        found_path = find_exe( test_file_path_relative ) 
+        self.assertEqual(  found_path, None )
+
+        # Now add to the PATH the directory containing that file
+        os.environ["PATH"] += os.pathsep +  os.path.join( self.tempdir, "top/foo" )
+        found_path = find_exe( test_file_path_relative ) 
+        self.assertEqual(  found_path, test_existing_file_path )
+
 if __name__ == '__main__':
     unittest.main()
 
