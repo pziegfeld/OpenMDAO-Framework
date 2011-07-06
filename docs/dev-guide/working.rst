@@ -41,7 +41,9 @@ creating lots of branches.
 
 .. note:: Make sure to check which branch you're on whenever you create a new
      branch.  Creating a branch off of the wrong branch can bring in unexpected
-     changes and generally cause confusion.
+     changes and generally cause confusion. If you type ``git branch``, you will see the
+     ``dev`` branch listed along with any other branches you've created. An * appears in
+     front of the branch you're on (i.e., the one checked out).
    
 
 
