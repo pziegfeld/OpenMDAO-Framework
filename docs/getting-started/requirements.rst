@@ -23,7 +23,7 @@ OpenMDAO requires that the following software be installed at the system level o
     incorrect Python installation in the PATH and/or not having the OpenMDAO-approved Python version in the PATH
     will only lead to problems.
 
-  - Although we support python 2.6, it's the older version. Unless you have a strong reason to use 2.6, we recommend 
+  - Although we support Python 2.6, it's the older version. Unless you have a strong reason to use 2.6, we recommend 
     getting Python 2.7.
 
 
@@ -73,20 +73,19 @@ use it, you must have compilers (C and Fortran) on your system.
 - `Matplotlib <http://sourceforge.net/projects/matplotlib/files/matplotlib/matplotlib-1.0/>`_
 
 
-.. note:: 
+.. note::
 
-  There are one click installers for numpy and scipy. You should use those unless 
-  you have a very good reason not to. You need to pick the proper installer
-  for your version of python (v2.6 or v2.7). For instance, if you had python 2.6, you want
-  a numpy version named something like *numpy-1.7.0-win32-superpack-python2.6.exe*. If you have python 2.7 then you want 
-  a scipy version called *scipy-0.11.0-win32-superpack-python2.7.exe*. The 
-  version numbers might be different than the ones here, but make sure you 
-  get something with *superpack* and *.exe* in the name. 
+   NumPy and SciPy have one-click installers. You should use those unless you have a very
+   good reason not to. You need to pick the proper installer for your version of Python (v2.6 or
+   v2.7). For instance, if you had Python 2.6, you want a NumPy version named something like
+   ``numpy-1.7.0-win32-superpack-python2.6.exe``. If you have Python 2.7, then you want a SciPy
+   version called ``scipy-0.11.0-win32-superpack-python2.7.exe``. The version numbers might be
+   different from the ones here, but make sure you get something with *superpack* and *.exe* in the name.
 
-  If you go to the numpy link above, you might see "looking for the 
-  latest version? Download numpy-1.7.0.zip". You **DON'T** want to get that one. 
-  It's a source distribution, not the installer. The same goes for scipy. Click through 
-  to the lastest version and get the .exe file. 
+   If you go to the NumPy link above, you might see "Looking for the latest version? Download
+   numpy-1.7.0.zip." You **DON'T** want to get that one. It's a source distribution, not the installer.
+   The same goes for SciPy. Click through to the latest version and get the *.exe* file.
+
 
 Not required, but highly recommended:
 
@@ -97,14 +96,14 @@ public/private key pairs to be stored securely.
 
 **Mac OS X**:
 
- - Python -- Install a new version (2.6.x or 2.7.x) from ``python.org`` because the built-in version has a distutils bug that
-   will cause some of the OpenMDAO tests to fail. It's not clear exactly what release the fix first
-   appeared in, but version `Python 2.6.5 <http://python.org/ftp/python/2.6.5/python-2.6.5-macosx10.3-2010-03-24.dmg>`_ definitely has the
-   fix.
- - `NumPy <http://sourceforge.net/projects/numpy/files/NumPy/>`_ 
- - `SciPy <http://sourceforge.net/projects/scipy/files/>`_
- - `gfortran-42-5646.pkg <http://r.research.att.com/tools/>`_ -- This version goes with Xcode. 
- - `Matplotlib <http://sourceforge.net/projects/matplotlib/files/matplotlib/matplotlib-1.0/>`_
+- Python -- Install a new version (2.6.x or 2.7.x) from ``python.org`` because the built-in version has a distutils bug that
+  will cause some of the OpenMDAO tests to fail. It's not clear exactly what release the fix first
+  appeared in, but version `Python 2.6.5 <http://python.org/ftp/python/2.6.5/python-2.6.5-macosx10.3-2010-03-24.dmg>`_ definitely has the
+  fix.
+- `NumPy <http://sourceforge.net/projects/numpy/files/NumPy/>`_ 
+- `SciPy <http://sourceforge.net/projects/scipy/files/>`_
+- `gfortran-42-5646.pkg <http://r.research.att.com/tools/>`_ -- This version goes with Xcode. 
+- `Matplotlib <http://sourceforge.net/projects/matplotlib/files/matplotlib/matplotlib-1.0/>`_
 
 
 
