@@ -69,7 +69,9 @@ Literal Text
 
  | ``Inline literal text`` 
 
- .. seealso:: :ref:`Using-Inline-Literal-Text`
+ .. seealso:: 
+
+    :ref:`Using-Inline-Literal-Text`
 
 
 **- Literal code block:**
@@ -168,11 +170,15 @@ Hyperlinks
 
   ::  
 
-    .. seealso:: :ref:`Git-Commands`
+    .. seealso:: 
+
+       :ref:`Git-Commands`
 
   results in:
 
-  .. seealso:: :ref:`Helpful-Git-Commands`
+  .. seealso:: 
+
+     :ref:`Helpful-Git-Commands`
 
 
   You must also place a label before the section referred to, for example:

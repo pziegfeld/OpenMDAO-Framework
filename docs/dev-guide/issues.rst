@@ -55,7 +55,9 @@ branch and write a little code, you will want to test and commit your code.
 After you commit your code, you are ready to issue a pull request to the OpenMDAO team. When your pull
 request gets merged into the main repository, you will be notified via email.
 
-.. seealso:: :ref:`Code-Contribution-Tutorial-&-Checklist`
+.. seealso:: 
+ 
+   :ref:`Code-Contribution-Tutorial-&-Checklist`
 
 .. _`Pivotal-Tracker`:
 

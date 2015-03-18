@@ -138,7 +138,7 @@ compilers.
     You can optionally use Visual C++ as your C++ compiler. You don't need it; mingw32 will work fine,
     but if you prefer Visual C++, you're welcome to use it instead. The Express version will work,
     and other versions (Professional, Standard) should work too. To get this software,
-    go to the `downloads page <http://www.visualstudio.com/downloads/download-visual-studio-vs>`_.
+    go to the `downloads page <https://www.visualstudio.com/downloads/download-visual-studio-vs>`_.
 
 .. __: http://sourceforge.net/projects/mingw/files    
 
